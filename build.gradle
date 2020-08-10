@@ -10,6 +10,12 @@ archivesBaseName = project.archives_base_name
 version = project.mod_version
 group = project.maven_group
 
+repositories {
+	flatDir {
+		dirs 'lib'
+	}
+}
+
 dependencies {
 	//to change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -21,6 +27,16 @@ dependencies {
 
 	// PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
 	// You may need to force-disable transitiveness on them.
+	modApi name: "dynmap-api-3.0-unshaded"
+	modApi name: "DynmapCoreAPI-3.0-all"
+	modImplementation name: "DynmapCore-3.0-unshaded"
+
+	compile 'javax.servlet:javax.servlet-api:3.1'
+	compile 'org.eclipse.jetty:jetty-server:9.4.26.v20200117'
+	compile 'org.eclipse.jetty:jetty-servlet:9.4.26.v20200117'
+	compile 'com.googlecode.json-simple:json-simple:1.1.1'
+	compile 'org.yaml:snakeyaml:1.23'
+	compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20180219.1'
 }
 
 processResources {
