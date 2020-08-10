@@ -4,7 +4,8 @@
   "package": "org.dynmap.fabric_1_16_1.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "BiomeEffectsAccessor"
+    "BiomeEffectsAccessor",
+    "ThreadedAnvilChunkStorageAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -12,6 +12,8 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
+import org.dynmap.fabric_1_16_1.mixin.ThreadedAnvilChunkStorageAccessor;
 import org.dynmap.fabric_1_16_1.permissions.FilePermissions;
 import org.dynmap.fabric_1_16_1.permissions.OpPermissions;
 import org.dynmap.fabric_1_16_1.permissions.PermissionProvider;
@@ -1288,7 +1290,7 @@ public class DynmapPlugin {
             if(bb != null) {
                 String id = Registry.BIOME.getId(bb).getPath();
                 float tmp = bb.getTemperature(), hum = bb.getRainfall();
-                int watermult = bb.getEffects().getWaterColor(); // TODO: client only (accessor needed)
+                int watermult = ((BiomeEffectsAccessor)bb.getEffects()).getWaterColor();
                 Log.verboseinfo("biome[" + i + "]: hum=" + hum + ", tmp=" + tmp + ", mult=" + Integer.toHexString(watermult));
 
                 BiomeMap bmap = BiomeMap.byBiomeID(i);
@@ -1708,9 +1710,9 @@ public class DynmapPlugin {
             for (ServerWorld world : server.getWorlds()) {
                 ForgeWorld fw = getWorld(world);
                 if (fw == null) continue;
-                Long2ObjectLinkedOpenHashMap<ChunkHolder> chunks = world.getChunkManager().threadedAnvilChunkStorage.chunkHolders; // TODO: accessor
+                Long2ObjectLinkedOpenHashMap<ChunkHolder> chunks = ((ThreadedAnvilChunkStorageAccessor)world.getChunkManager().threadedAnvilChunkStorage).getChunkHolders();
                 for (Map.Entry<Long, ChunkHolder> k : chunks.long2ObjectEntrySet()) {
-                    long key = k.getKey().longValue();
+                    long key = k.getKey();
                     ChunkHolder ch = k.getValue();
                     Chunk c = null;
                     try {
