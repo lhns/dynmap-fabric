@@ -18,34 +18,17 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class DynmapMod implements ModInitializer, DedicatedServerModInitializer, ClientModInitializer {
+public class DynmapMod implements ModInitializer {
     private static final String MODID = "dynmap";
     private static final ModContainer MOD_CONTAINER = FabricLoader.getInstance().getModContainer(MODID)
             .orElseThrow(() -> new RuntimeException("Failed to get mod container: " + MODID));
-
     // The instance of your mod that Fabric uses.
     public static DynmapMod instance;
-
-    // Says where the client and server 'proxy' code is loaded.
-    public static Proxy proxy;
 
     public static DynmapPlugin plugin;
     public static File jarfile;
     public static String ver;
     public static boolean useforcedchunks;
-
-    public class APICallback extends DynmapCommonAPIListener {
-        @Override
-        public void apiListenerAdded() {
-            if (plugin == null) {
-                plugin = proxy.startServer(server);
-            }
-        }
-
-        @Override
-        public void apiEnabled(DynmapCommonAPI api) {
-        }
-    }
 
     @Override
     public void onInitialize() {
@@ -68,39 +51,7 @@ public class DynmapMod implements ModInitializer, DedicatedServerModInitializer,
         Log.setLogger(new DynmapPlugin.OurLog());
         org.dynmap.modsupport.ModSupportImpl.init();
 
-        ServerLifecycleEvents.SERVER_STARTING.register(this::onServerStarting);
-        ServerLifecycleEvents.SERVER_STOPPING.register(this::serverStopping);
-    }
-
-    @Override
-    public void onInitializeClient() {
-        proxy = new ClientProxy();
-    }
-
-    @Override
-    public void onInitializeServer() {
-        proxy = new Proxy();
-    }
-
-    private MinecraftServer server;
-
-    public void onServerStarting(MinecraftServer server) {
-        this.server = server;
-        if (plugin == null)
-            plugin = proxy.startServer(server);
-        plugin.onStarting(server.getCommandManager().getDispatcher());
-
-        // ServerLifecycleEvents.SERVER_STARTED doesn't work because it is called after world load
-        onServerStarted(server);
-    }
-
-    public void onServerStarted(MinecraftServer server) {
-        DynmapCommonAPIListener.register(new APICallback());
-        plugin.serverStarted();
-    }
-
-    public void serverStopping(MinecraftServer server) {
-        proxy.stopServer(plugin);
-        plugin = null;
+        // Initialize the plugin, we will enable it fully when the server starts.
+        plugin = new DynmapPlugin();
     }
 }

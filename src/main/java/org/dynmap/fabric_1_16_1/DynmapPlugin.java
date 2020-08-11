@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -90,6 +91,9 @@ public class DynmapPlugin {
     public SnapshotCache sscache;
     public PlayerList playerList;
     private MapManager mapManager;
+    /**
+     * Server is set when running and unset at shutdown.
+     */
     private net.minecraft.server.MinecraftServer server;
     public static DynmapPlugin plugin;
     private ChatHandler chathandler;
@@ -372,10 +376,23 @@ public class DynmapPlugin {
             log.warn(DM + s, t);
         }
     }
-    public DynmapPlugin(MinecraftServer srv)
-    {
+
+    DynmapPlugin() {
         plugin = this;
-        this.server = srv;
+        // Fabric events persist between server instances
+        ServerLifecycleEvents.SERVER_STARTING.register(this::startServer);
+        ServerLifecycleEvents.SERVER_STOPPING.register(this::stopServer);
+    }
+
+    private void startServer(MinecraftServer server) {
+        // Set the server so we don't NPE during setup
+        this.server = server;
+        this.onEnable();
+    }
+
+    private void stopServer(MinecraftServer server) {
+        this.onDisable();
+        this.server = null;
     }
 
     public boolean isOp(String player) {
