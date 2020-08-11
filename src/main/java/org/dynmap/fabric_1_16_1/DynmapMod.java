@@ -47,6 +47,7 @@ public class DynmapMod implements ModInitializer, DedicatedServerModInitializer,
     public void onInitialize() {
         instance = this;
 
+        // TODO: Just get the mod container using `FabricLoader` lol
         ModContainer container = FabricLoader.getInstance().getEntrypointContainers("main", ModInitializer.class)
                 .stream().filter(e -> this == e.getEntrypoint()).findAny().get().getProvider();
 

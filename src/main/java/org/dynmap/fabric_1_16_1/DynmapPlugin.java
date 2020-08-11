@@ -1,29 +1,22 @@
 package org.dynmap.fabric_1_16_1;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sun.nio.zipfs.ZipFileSystem;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.DedicatedServerModInitializer;
-import net.fabricmc.api.ModInitializer;
+
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FluidBlock;
 import net.minecraft.block.Material;
-import net.minecraft.command.CommandException;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.network.ClientConnection;
@@ -32,7 +25,6 @@ import net.minecraft.server.BannedIpList;
 import net.minecraft.server.BannedPlayerList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
-import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -59,6 +51,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
 import org.dynmap.common.*;
+import org.dynmap.fabric_1_16_1.command.DmapCommand;
+import org.dynmap.fabric_1_16_1.command.DmarkerCommand;
+import org.dynmap.fabric_1_16_1.command.DynmapCommand;
+import org.dynmap.fabric_1_16_1.command.DynmapExpCommand;
 import org.dynmap.fabric_1_16_1.event.BlockEvents;
 import org.dynmap.fabric_1_16_1.event.ChunkDataEvents;
 import org.dynmap.fabric_1_16_1.event.PlayerEvents;
@@ -86,7 +82,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class DynmapPlugin {
     private DynmapCore core;
@@ -1167,12 +1162,6 @@ public class DynmapPlugin {
         DynmapCommonAPIListener.apiInitialized(core);
     }
 
-    private static int test(ServerCommandSource source) throws CommandSyntaxException
-    {
-        System.out.println(source.toString());
-        return 1;
-    }
-
     private DynmapCommand dynmapCmd;
     private DmapCommand dmapCmd;
     private DmarkerCommand dmarkerCmd;
@@ -1180,6 +1169,7 @@ public class DynmapPlugin {
 
     public void onStarting(CommandDispatcher<ServerCommandSource> cd) {
         /* Register command hander */
+        // TODO: Use CommandRegistrationCallback
         dynmapCmd = new DynmapCommand(this);
         dmapCmd = new DmapCommand(this);
         dmarkerCmd = new DmarkerCommand(this);
@@ -1277,23 +1267,22 @@ public class DynmapPlugin {
         Log.info("Disabled");
     }
 
-    void onCommand(ServerCommandSource sender, String cmd, String[] args)
+    // TODO: Clean a bit
+    public void handleCommand(ServerCommandSource commandSource, String cmd, String[] args) throws CommandSyntaxException
     {
         DynmapCommandSender dsender;
-        ServerPlayerEntity psender;
-        try {
-            psender = sender.getPlayer();
-        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException x) {
-            psender = null;
+        ServerPlayerEntity psender = null;
+
+        // getPlayer throws a CommandSyntaxException, so getEntity and instanceof for safety
+        if (commandSource.getEntity() instanceof ServerPlayerEntity) {
+            psender = commandSource.getPlayer();
         }
 
-        if (psender != null)
-        {
+        if (psender != null) {
+            // FIXME: New Player? Why not query the current player list.
             dsender = new FabricPlayer(this, psender);
-        }
-        else
-        {
-            dsender = new FabricCommandSender(sender);
+        } else {
+            dsender = new FabricCommandSender(commandSource);
         }
 
         core.processCommand(dsender, cmd, cmd, args);
@@ -1624,55 +1613,3 @@ public class DynmapPlugin {
     }
 }
 
-class DynmapCommandHandler
-{
-    private String cmd;
-    private DynmapPlugin plugin;
-
-    public DynmapCommandHandler(String cmd, DynmapPlugin p)
-    {
-        this.cmd = cmd;
-        this.plugin = p;
-    }
-
-    public void register(CommandDispatcher<ServerCommandSource> cd) {
-        cd.register(CommandManager.literal(cmd).
-                then(RequiredArgumentBuilder.<ServerCommandSource, String> argument("args", StringArgumentType.greedyString()).
-                        executes((ctx) -> this.execute(plugin.getMCServer(), ctx.getSource(), ctx.getInput()))).
-                executes((ctx) -> this.execute(plugin.getMCServer(), ctx.getSource(), ctx.getInput())));
-    }
-
-    //    @Override
-    public int execute(MinecraftServer server, ServerCommandSource sender,
-                       String cmdline) throws CommandException {
-        String[] args = cmdline.split("\\s+");
-        plugin.onCommand(sender, cmd, Arrays.copyOfRange(args, 1, args.length));
-        return 1;
-    }
-
-    //    @Override
-    public String getUsage(ServerCommandSource arg0) {
-        return "Run /" + cmd + " help for details on using command";
-    }
-}
-
-class DynmapCommand extends DynmapCommandHandler {
-    DynmapCommand(DynmapPlugin p) {
-        super("dynmap", p);
-    }
-}
-class DmapCommand extends DynmapCommandHandler {
-    DmapCommand(DynmapPlugin p) {
-        super("dmap", p);
-    }
-}
-class DmarkerCommand extends DynmapCommandHandler {
-    DmarkerCommand(DynmapPlugin p) {
-        super("dmarker", p);
-    }
-}
-class DynmapExpCommand extends DynmapCommandHandler {
-    DynmapExpCommand(DynmapPlugin p) {
-        super("dynmapexp", p);
-    }
-}
