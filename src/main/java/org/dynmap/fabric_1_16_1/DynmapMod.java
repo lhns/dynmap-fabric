@@ -1,15 +1,9 @@
 package org.dynmap.fabric_1_16_1;
 
 import com.sun.nio.zipfs.ZipFileSystem;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.server.MinecraftServer;
-import org.dynmap.DynmapCommonAPI;
-import org.dynmap.DynmapCommonAPIListener;
 import org.dynmap.DynmapCore;
 import org.dynmap.Log;
 
