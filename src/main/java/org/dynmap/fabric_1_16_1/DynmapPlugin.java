@@ -1691,19 +1691,19 @@ public class DynmapPlugin {
             }
         }
 
-        public void handleBlockEvent(BlockEvents.BlockEvent event) {
+        public void handleBlockEvent(World world, BlockPos pos) {
             if (!core_enabled) return;
             if (!onblockchange) return;
+            if(!(world instanceof ServerWorld)) return;
 
             BlockUpdateRec r = new BlockUpdateRec();
-            r.w = event.getWorld();
+            r.w = world;
             FabricWorld fw = getWorld(r.w, false);
             if (fw == null) return;
             r.wid = fw.getName();
-            BlockPos p = event.getPos();
-            r.x = p.getX();
-            r.y = p.getY();
-            r.z = p.getZ();
+            r.x = pos.getX();
+            r.y = pos.getY();
+            r.z = pos.getZ();
             blockupdatequeue.add(r);
         }
     }
@@ -1729,7 +1729,7 @@ public class DynmapPlugin {
             ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> worldTracker.handleChunkLoad(world, chunk));
             ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> worldTracker.handleChunkUnload(world, chunk));
             ChunkDataEvents.SAVE.register((world, chunk) -> worldTracker.handleChunkDataSave(world, chunk));
-            BlockEvents.EVENT.register(event -> worldTracker.handleBlockEvent(event));
+            BlockEvents.EVENT.register((world, pos) -> worldTracker.handleBlockEvent(world, pos));
         }
         // Prime the known full chunks
         if (onchunkgenerate && (server.getWorlds() != null)) {

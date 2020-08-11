@@ -6,7 +6,9 @@
   "mixins": [
     "BiomeEffectsAccessor",
     "ThreadedAnvilChunkStorageAccessor",
-    "ThreadedAnvilChunkStorageMixin"
+    "ThreadedAnvilChunkStorageMixin",
+    "WorldChunkAccessor",
+    "WorldChunkMixin"
   ],
   "injectors": {
     "defaultRequire": 1
