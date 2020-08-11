@@ -4,6 +4,7 @@ import com.sun.nio.zipfs.ZipFileSystem;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.server.ServerStartCallback;
 import net.fabricmc.fabric.api.event.server.ServerStopCallback;
 import net.fabricmc.loader.api.FabricLoader;
@@ -59,11 +60,9 @@ public class DynmapMod implements ModInitializer, DedicatedServerModInitializer,
         Log.setLogger(new DynmapPlugin.OurLog());
         org.dynmap.modsupport.ModSupportImpl.init();
 
-        ServerStartCallback.EVENT.register(server -> {
-            onServerStarting(server);
-            onServerStarted(server);
-        });
-        ServerStopCallback.EVENT.register(this::serverStopping);
+        ServerLifecycleEvents.SERVER_STARTING.register(this::onServerStarting);
+        ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
+        ServerLifecycleEvents.SERVER_STOPPING.register(this::serverStopping);
     }
 
     @Override

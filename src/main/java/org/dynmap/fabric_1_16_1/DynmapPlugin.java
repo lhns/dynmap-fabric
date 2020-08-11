@@ -16,10 +16,14 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.event.server.ServerTickCallback;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+import net.minecraft.world.chunk.WorldChunk;
 import org.dynmap.fabric_1_16_1.event.ServerChatCallback;
 import org.dynmap.fabric_1_16_1.event.ServerChatEvent;
 import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
@@ -1443,7 +1447,7 @@ public class DynmapPlugin {
 
         /* Register tick handler */
         if(!tickregistered) {
-            ServerTickCallback.EVENT.register(server -> fserver.tickEvent(server));
+            ServerTickEvents.END_SERVER_TICK.register(server -> fserver.tickEvent(server));
             tickregistered = true;
         }
 
@@ -1585,12 +1589,10 @@ public class DynmapPlugin {
     }
 
     public class WorldTracker {
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleWorldLoad(WorldEvent.Load event) {
+        public void handleWorldLoad(MinecraftServer server, ServerWorld world) {
             if(!core_enabled) return;
-            WorldAccess w = event.getWorld();
-            if(!(w instanceof ServerWorld)) return;
-            final ForgeWorld fw = getWorld(w);
+
+            final ForgeWorld fw = getWorld(world);
             // This event can be called from off server thread, so push processing there
             core.getServer().scheduleServerTask(new Runnable() {
                 public void run() {
@@ -1599,12 +1601,11 @@ public class DynmapPlugin {
                 }
             }, 0);
         }
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleWorldUnload(WorldEvent.Unload event) {
+
+        public void handleWorldUnload(MinecraftServer server, ServerWorld world) {
             if(!core_enabled) return;
-            WorldAccess w = event.getWorld();
-            if(!(w instanceof ServerWorld)) return;
-            final ForgeWorld fw = getWorld(w);
+
+            final ForgeWorld fw = getWorld(world);
             if(fw != null) {
                 // This event can be called from off server thread, so push processing there
                 core.getServer().scheduleServerTask(new Runnable() {
@@ -1621,34 +1622,27 @@ public class DynmapPlugin {
             }
         }
 
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleChunkLoad(ChunkEvent.Load event) {
+        public void handleChunkLoad(ServerWorld world, WorldChunk chunk) {
             if(!onchunkgenerate) return;
 
-            WorldAccess w = event.getWorld();
-            if(!(w instanceof ServerWorld)) return;
-            Chunk c = event.getChunk();
-            if ((c != null) && (c.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(w, false);
+            if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
+                ForgeWorld fw = getWorld(world, false);
                 if (fw != null) {
-                    addKnownChunk(fw, c.getPos());
+                    addKnownChunk(fw, chunk.getPos());
                 }
             }
         }
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleChunkUnload(ChunkEvent.Unload event) {
+
+        public void handleChunkUnload(ServerWorld world, WorldChunk chunk) {
             if(!onchunkgenerate) return;
 
-            WorldAccess w = event.getWorld();
-            if(!(w instanceof ServerWorld)) return;
-            Chunk c = event.getChunk();
-            if ((c != null) && (c.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(w, false);
-                ChunkPos cp = c.getPos();
+            if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
+                ForgeWorld fw = getWorld(world, false);
+                ChunkPos cp = chunk.getPos();
                 if (fw != null) {
                     if (!checkIfKnownChunk(fw, cp)) {
                         int ymax = 0;
-                        ChunkSection[] sections = c.getSectionArray();
+                        ChunkSection[] sections = chunk.getSectionArray();
                         for(int i = 0; i < sections.length; i++) {
                             if((sections[i] != null) && (!sections[i].isEmpty())) {
                                 ymax = 16*(i+1);
@@ -1729,6 +1723,11 @@ public class DynmapPlugin {
             onblockchange = true;
         if ((worldTracker == null) && (onblockchange || onchunkpopulate || onchunkgenerate)) {
             worldTracker = new WorldTracker();
+            ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> worldTracker.handleChunkLoad(world, chunk));
+            ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> worldTracker.handleChunkUnload(world, chunk));
+            ServerWorldEvents.LOAD.register(e -> worldTracker.handleWorldLoad(e));
+            ServerWorldEvents.UNLOAD.register(e -> worldTracker.handleWorldUnload(e));
+
             MinecraftForge.EVENT_BUS.register(worldTracker);
         }
         // Prime the known full chunks
