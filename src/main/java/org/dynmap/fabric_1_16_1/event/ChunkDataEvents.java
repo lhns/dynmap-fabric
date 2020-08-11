@@ -3,7 +3,7 @@ package org.dynmap.fabric_1_16_1.event;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.chunk.Chunk;
 
 public class ChunkDataEvents {
     private ChunkDataEvents() {
@@ -20,6 +20,6 @@ public class ChunkDataEvents {
 
     @FunctionalInterface
     public interface Save {
-        void onSave(ServerWorld world, WorldChunk chunk);
+        void onSave(ServerWorld world, Chunk chunk);
     }
 }

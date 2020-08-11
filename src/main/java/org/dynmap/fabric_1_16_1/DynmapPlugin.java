@@ -1664,7 +1664,7 @@ public class DynmapPlugin {
             }
         }
 
-        public void handleChunkDataSave(ServerWorld world, WorldChunk chunk) {
+        public void handleChunkDataSave(ServerWorld world, Chunk chunk) {
             if (!onchunkgenerate) return;
 
             if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
@@ -1726,10 +1726,7 @@ public class DynmapPlugin {
             worldTracker = new WorldTracker();
             ServerWorldEvents.LOAD.register((server, world) -> worldTracker.handleWorldLoad(server, world));
             ServerWorldEvents.UNLOAD.register((server, world) -> worldTracker.handleWorldUnload(server, world));
-            ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
-                worldTracker.handleChunkLoad(world, chunk);
-                ChunkDataEvents.SAVE.invoker().onSave(world, chunk); // TODO: implement properly
-            });
+            ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> worldTracker.handleChunkLoad(world, chunk));
             ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> worldTracker.handleChunkUnload(world, chunk));
             ChunkDataEvents.SAVE.register((world, chunk) -> worldTracker.handleChunkDataSave(world, chunk));
             BlockEvents.EVENT.register(event -> worldTracker.handleBlockEvent(event));
