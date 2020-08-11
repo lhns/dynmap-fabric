@@ -1,4 +1,7 @@
-# Fabric Example Mod
+# Dynmap for Fabric [Unofficial]
+
+Note this is an unofficial port of Dynmap for Fabric.
+Please do not contact the dynmap developers with issues; make bug reports and issues here.
 
 ## Setup
 

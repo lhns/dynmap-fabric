@@ -1,11 +1,8 @@
 package org.dynmap.fabric_1_16_1;
 
-import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonParseException;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
@@ -31,7 +28,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.MessageType;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.server.BannedIpList;
 import net.minecraft.server.BannedPlayerList;
 import net.minecraft.server.MinecraftServer;
@@ -50,7 +46,6 @@ import net.minecraft.util.Util;
 import net.minecraft.util.collection.IdList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldAccess;
@@ -59,8 +54,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
-import org.apache.commons.codec.Charsets;
-import org.apache.commons.codec.binary.Base64;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
@@ -83,8 +77,6 @@ import org.dynmap.utils.VisibilityLimit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -131,6 +123,18 @@ public class DynmapPlugin {
     private static final String[] TRIGGER_DEFAULTS = { "blockupdate", "chunkpopulate", "chunkgenerate" };
 
     private static final Pattern patternControlCode = Pattern.compile("(?i)\\u00A7[0-9A-FK-OR]");
+
+    int getSortWeight(String name) {
+        return sortWeights.getOrDefault(name, 0);
+    }
+
+    void setSortWeight(String name, int wt) {
+        sortWeights.put(name, wt);
+    }
+
+    void dropSortWeight(String name) {
+        sortWeights.remove(name);
+    }
 
     public static class BlockUpdateRec {
         WorldAccess w;
@@ -267,9 +271,8 @@ public class DynmapPlugin {
         FabricPlayer fp = players.get(name);
         if(fp != null) {
             fp.player = p;
-        }
-        else {
-            fp = new FabricPlayer(p);
+        } else {
+            fp = new FabricPlayer(this, p);
             players.put(name, fp);
         }
         return fp;
@@ -384,7 +387,7 @@ public class DynmapPlugin {
         return (server.isSinglePlayer() && player.equalsIgnoreCase(server.getUserName()));
     }
 
-    private boolean hasPerm(PlayerEntity psender, String permission) {
+    boolean hasPerm(PlayerEntity psender, String permission) {
         PermissionsHandler ph = PermissionsHandler.getHandler();
         if((psender != null) && ph.hasPermission(psender.getName().getString(), permission)) {
             return true;
@@ -392,7 +395,7 @@ public class DynmapPlugin {
         return permissions.has(psender, permission);
     }
 
-    private boolean hasPermNode(PlayerEntity psender, String permission) {
+    boolean hasPermNode(PlayerEntity psender, String permission) {
         PermissionsHandler ph = PermissionsHandler.getHandler();
         if((psender != null) && ph.hasPermissionNode(psender.getName().getString(), permission)) {
             return true;
@@ -895,7 +898,7 @@ public class DynmapPlugin {
                 if(cm.sender != null)
                     dp = getOrAddPlayer(cm.sender);
                 else
-                    dp = new FabricPlayer(null);
+                    dp = new FabricPlayer(DynmapPlugin.this, null);
 
                 core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
             }
@@ -1017,7 +1020,6 @@ public class DynmapPlugin {
         }
 
     }
-    private static final Gson gson = new GsonBuilder().create();
 
     public class TexturesPayload {
         public long timestamp;
@@ -1031,241 +1033,8 @@ public class DynmapPlugin {
         public String url;
     }
 
-    /**
-     * Player access abstraction class
-     */
-    public class FabricPlayer extends FabricCommandSender implements DynmapPlayer
-    {
-        private PlayerEntity player;
-        private final String skinurl;
-        private final UUID uuid;
-
-
-        public FabricPlayer(PlayerEntity p)
-        {
-            player = p;
-            String url = null;
-            if (player != null) {
-                uuid = player.getUuid();
-                GameProfile prof = player.getGameProfile();
-                if (prof != null) {
-                    Property textureProperty = Iterables.getFirst(prof.getProperties().get("textures"), null);
-
-                    if (textureProperty != null) {
-                        TexturesPayload result = null;
-                        try {
-                            String json = new String(Base64.decodeBase64(textureProperty.getValue()), Charsets.UTF_8);
-                            result = gson.fromJson(json, TexturesPayload.class);
-                        } catch (JsonParseException e) {
-                        }
-                        if ((result != null) && (result.textures != null) && (result.textures.containsKey("SKIN"))) {
-                            url = result.textures.get("SKIN").url;
-                        }
-                    }
-                }
-            }
-            else {
-                uuid = null;
-            }
-            skinurl = url;
-        }
-        @Override
-        public boolean isConnected()
-        {
-            return true;
-        }
-        @Override
-        public String getName()
-        {
-            if(player != null) {
-                String n = player.getName().getString();;
-                return n;
-            }
-            else
-                return "[Server]";
-        }
-        @Override
-        public String getDisplayName()
-        {
-            if(player != null) {
-                String n = player.getDisplayName().getString();
-                return n;
-            }
-            else
-                return "[Server]";
-        }
-        @Override
-        public boolean isOnline()
-        {
-            return true;
-        }
-        @Override
-        public DynmapLocation getLocation()
-        {
-            if (player == null) {
-                return null;
-            }
-            Vec3d v = player.getPos();
-            return toLoc(player.world, v.x, v.y, v.z);
-        }
-        @Override
-        public String getWorld()
-        {
-            if (player == null)
-            {
-                return null;
-            }
-
-            if (player.world != null)
-            {
-                return DynmapPlugin.this.getWorld(player.world).getName();
-            }
-
-            return null;
-        }
-        @Override
-        public InetSocketAddress getAddress()
-        {
-            if((player != null) && (player instanceof ServerPlayerEntity)) {
-                ServerPlayNetworkHandler nsh = ((ServerPlayerEntity)player).networkHandler;
-                if((nsh != null) && (getNetworkManager(nsh) != null)) {
-                    SocketAddress sa = getNetworkManager(nsh).getAddress();
-                    if(sa instanceof InetSocketAddress) {
-                        return (InetSocketAddress)sa;
-                    }
-                }
-            }
-            return null;
-        }
-        @Override
-        public boolean isSneaking()
-        {
-            if (player != null)
-            {
-                return player.isSneaking();
-            }
-
-            return false;
-        }
-        @Override
-        public double getHealth()
-        {
-            if (player != null)
-            {
-                double h = player.getHealth();
-                if(h > 20) h = 20;
-                return h;  // Scale to 20 range
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        @Override
-        public int getArmorPoints()
-        {
-            if (player != null)
-            {
-                return player.getArmor();
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        @Override
-        public DynmapLocation getBedSpawnLocation()
-        {
-            return null;
-        }
-        @Override
-        public long getLastLoginTime()
-        {
-            return 0;
-        }
-        @Override
-        public long getFirstLoginTime()
-        {
-            return 0;
-        }
-        @Override
-        public boolean hasPrivilege(String privid)
-        {
-            if(player != null)
-                return hasPerm(player, privid);
-            return false;
-        }
-        @Override
-        public boolean isOp()
-        {
-            return DynmapPlugin.this.isOp(player.getName().getString());
-        }
-        @Override
-        public void sendMessage(String msg)
-        {
-            Text ichatcomponent = new LiteralText(msg);
-            server.getPlayerManager().broadcastChatMessage(ichatcomponent, MessageType.CHAT, player.getUuid());
-        }
-        @Override
-        public boolean isInvisible() {
-            if(player != null) {
-                return player.isInvisible();
-            }
-            return false;
-        }
-        @Override
-        public int getSortWeight() {
-            Integer wt = sortWeights.get(getName());
-            if (wt != null)
-                return wt;
-            return 0;
-        }
-        @Override
-        public void setSortWeight(int wt) {
-            if (wt == 0) {
-                sortWeights.remove(getName());
-            }
-            else {
-                sortWeights.put(getName(), wt);
-            }
-        }
-        @Override
-        public boolean hasPermissionNode(String node) {
-            if(player != null)
-                return hasPermNode(player, node);
-            return false;
-        }
-        @Override
-        public String getSkinURL() {
-            return skinurl;
-        }
-        @Override
-        public UUID getUUID() {
-            return uuid;
-        }
-        /**
-         * Send title and subtitle text (called from server thread)
-         */
-        @Override
-        public void sendTitleText(String title, String subtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
-            if (player instanceof ServerPlayerEntity) {
-                ServerPlayerEntity mp = (ServerPlayerEntity) player;
-                TitleS2CPacket times = new TitleS2CPacket(fadeInTicks, stayTicks, fadeOutTicks);
-                mp.networkHandler.sendPacket(times);
-                if (title != null) {
-                    TitleS2CPacket titlepkt = new TitleS2CPacket(TitleS2CPacket.Action.TITLE, new LiteralText(title));
-                    mp.networkHandler.sendPacket(titlepkt);
-                }
-
-                if (subtitle != null) {
-                    TitleS2CPacket subtitlepkt = new TitleS2CPacket(TitleS2CPacket.Action.SUBTITLE, new LiteralText(subtitle));
-                    mp.networkHandler.sendPacket(subtitlepkt);
-                }
-            }
-        }
-    }
     /* Handler for generic console command sender */
-    public class FabricCommandSender implements DynmapCommandSender
+    public static class FabricCommandSender implements DynmapCommandSender
     {
         private ServerCommandSource sender;
 
@@ -1527,7 +1296,7 @@ public class DynmapPlugin {
 
         if (psender != null)
         {
-            dsender = new FabricPlayer(psender);
+            dsender = new FabricPlayer(this, psender);
         }
         else
         {
@@ -1537,7 +1306,7 @@ public class DynmapPlugin {
         core.processCommand(dsender, cmd, cmd, args);
     }
 
-    private DynmapLocation toLoc(World worldObj, double x, double y, double z)
+    DynmapLocation toLoc(World worldObj, double x, double y, double z)
     {
         return new DynmapLocation(DynmapPlugin.this.getWorld(worldObj).getName(), x, y, z);
     }
@@ -1759,7 +1528,7 @@ public class DynmapPlugin {
         return worlds.get(name);
     }
 
-    private FabricWorld getWorld(WorldAccess w) {
+    FabricWorld getWorld(WorldAccess w) {
         return getWorld(w, true);
     }
 
