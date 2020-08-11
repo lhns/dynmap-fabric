@@ -107,7 +107,7 @@ public class DynmapPlugin {
     private Map<String, FabricPlayer> players = new HashMap<String, FabricPlayer>();
     //TODO private ForgeMetrics metrics;
     private HashSet<String> modsused = new HashSet<String>();
-    private FabricServer fserver = new FabricServer();
+    private FabricServer fserver = new FabricServer(this); // FIXME: Get server in actual server itf
     private boolean tickregistered = false;
     // TPS calculator
     private double tps;
@@ -311,19 +311,25 @@ public class DynmapPlugin {
         }
     }
 
-    private class ChatMessage {
+    private static class ChatMessage {
         String message;
         ServerPlayerEntity sender;
     }
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
-    public class ChatHandler {
+    public static class ChatHandler {
+        private final DynmapPlugin plugin;
+
+        ChatHandler(DynmapPlugin plugin) {
+            this.plugin = plugin;
+        }
+
         public void handleChat(ServerPlayerEntity player, String message) {
             if (!message.startsWith("/")) {
                 ChatMessage cm = new ChatMessage();
                 cm.message = message;
                 cm.sender = player;
-                msgqueue.add(cm);
+                plugin.msgqueue.add(cm);
             }
         }
     }
@@ -433,16 +439,19 @@ public class DynmapPlugin {
     /**
      * Server access abstraction class
      */
-    public class FabricServer extends DynmapServerInterface
+    public static class FabricServer extends DynmapServerInterface
     {
         /* Server thread scheduler */
         private final Object schedlock = new Object();
+        private final DynmapPlugin plugin;
+        private MinecraftServer server;
         private long cur_tick;
         private long next_id;
         private long cur_tick_starttime;
         private PriorityQueue<TaskRecord> runqueue = new PriorityQueue<TaskRecord>();
 
-        public FabricServer() {
+        public FabricServer(DynmapPlugin plugin) {
+            this.plugin = plugin;
         }
 
         private GameProfile getProfileByName(String player) {
@@ -486,7 +495,7 @@ public class DynmapPlugin {
             for (int i = 0; i < playerCount; i++)
             {
                 ServerPlayerEntity player = players.get(i);
-                dplay[i] = getOrAddPlayer(player);
+                dplay[i] = plugin.getOrAddPlayer(player);
             }
 
             return dplay;
@@ -508,7 +517,7 @@ public class DynmapPlugin {
 
                 if (player.getName().getString().equalsIgnoreCase(name))
                 {
-                    return getOrAddPlayer(player);
+                    return plugin.getOrAddPlayer(player);
                 }
             }
 
@@ -615,9 +624,9 @@ public class DynmapPlugin {
                     break;
 
                 case PLAYER_CHAT:
-                    if (chathandler == null) {
-                        chathandler = new ChatHandler();
-                        ServerChatEvents.EVENT.register((player, message) -> chathandler.handleChat(player, message));
+                    if (plugin.chathandler == null) {
+                        plugin.chathandler = new ChatHandler(plugin);
+                        ServerChatEvents.EVENT.register((player, message) -> plugin.chathandler.handleChat(player, message));
                     }
                     break;
 
@@ -692,20 +701,20 @@ public class DynmapPlugin {
         @Override
         public double getCacheHitRate()
         {
-            if(sscache != null)
-                return sscache.getHitRate();
+            if(plugin.sscache != null)
+                return plugin.sscache.getHitRate();
             return 0.0;
         }
         @Override
         public void resetCacheStats()
         {
-            if(sscache != null)
-                sscache.resetStats();
+            if(plugin.sscache != null)
+                plugin.sscache.resetStats();
         }
         @Override
         public DynmapWorld getWorldByName(String wname)
         {
-            return DynmapPlugin.this.getWorldByName(wname);
+            return plugin.getWorldByName(wname);
         }
         @Override
         public DynmapPlayer getOfflinePlayer(String name)
@@ -728,7 +737,7 @@ public class DynmapPlugin {
             if(bl.contains(getProfileByName(player))) {
                 return Collections.emptySet();
             }
-            Set<String> rslt = hasOfflinePermissions(player, perms);
+            Set<String> rslt = plugin.hasOfflinePermissions(player, perms);
             if (rslt == null) {
                 rslt = new HashSet<String>();
                 if(plugin.isOp(player)) {
@@ -747,7 +756,7 @@ public class DynmapPlugin {
             if(bl.contains(getProfileByName(player))) {
                 return false;
             }
-            return hasOfflinePermission(player, perm);
+            return plugin.hasOfflinePermission(player, perm);
         }
         /**
          * Render processor helper - used by code running on render threads to request chunk snapshot cache from server/sync thread
@@ -826,8 +835,7 @@ public class DynmapPlugin {
             return c;
         }
         @Override
-        public int getMaxPlayers()
-        {
+        public int getMaxPlayers() {
             return server.getMaxPlayerCount();
         }
         @Override
@@ -838,27 +846,27 @@ public class DynmapPlugin {
 
         public void tickEvent(MinecraftServer server)  {
             cur_tick_starttime = System.nanoTime();
-            long elapsed = cur_tick_starttime - lasttick;
-            lasttick = cur_tick_starttime;
-            avgticklen = ((avgticklen * 99) / 100) + (elapsed / 100);
-            tps = (double)1E9 / (double)avgticklen;
+            long elapsed = cur_tick_starttime - plugin.lasttick;
+            plugin.lasttick = cur_tick_starttime;
+            plugin.avgticklen = ((plugin.avgticklen * 99) / 100) + (elapsed / 100);
+            plugin.tps = (double)1E9 / (double)plugin.avgticklen;
             // Tick core
-            if (core != null) {
-                core.serverTick(tps);
+            if (plugin.core != null) {
+                plugin.core.serverTick(plugin.tps);
             }
 
             boolean done = false;
             TaskRecord tr = null;
 
-            while(!blockupdatequeue.isEmpty()) {
-                BlockUpdateRec r = blockupdatequeue.remove();
+            while(!plugin.blockupdatequeue.isEmpty()) {
+                BlockUpdateRec r = plugin.blockupdatequeue.remove();
                 BlockState bs = r.w.getBlockState(new BlockPos(r.x, r.y, r.z));
                 int idx = Block.STATE_IDS.getId(bs);
                 if(!org.dynmap.hdmap.HDBlockModels.isChangeIgnoredBlock(stateByID[idx])) {
-                    if(onblockchange_with_id)
-                        mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange[" + idx + "]");
+                    if(plugin.onblockchange_with_id)
+                        plugin.mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange[" + idx + "]");
                     else
-                        mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange");
+                        plugin.mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange");
                 }
             }
 
@@ -869,7 +877,7 @@ public class DynmapPlugin {
                 now = System.nanoTime();
                 tr = runqueue.peek();
                 /* Nothing due to run */
-                if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > perTickLimit)) {
+                if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
                     done = true;
                 }
                 else {
@@ -883,7 +891,7 @@ public class DynmapPlugin {
                     tr = runqueue.peek();
                     now = System.nanoTime();
                     /* Nothing due to run */
-                    if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > perTickLimit)) {
+                    if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
                         done = true;
                     }
                     else {
@@ -891,15 +899,15 @@ public class DynmapPlugin {
                     }
                 }
             }
-            while(!msgqueue.isEmpty()) {
-                ChatMessage cm = msgqueue.poll();
+            while(!plugin.msgqueue.isEmpty()) {
+                ChatMessage cm = plugin.msgqueue.poll();
                 DynmapPlayer dp = null;
                 if(cm.sender != null)
-                    dp = getOrAddPlayer(cm.sender);
+                    dp = plugin.getOrAddPlayer(cm.sender);
                 else
-                    dp = new FabricPlayer(DynmapPlugin.this, null);
+                    dp = new FabricPlayer(plugin, null);
 
-                core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
+                plugin.core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
             }
             // Check for generated chunks
             if((cur_tick % 20) == 0) {
@@ -911,33 +919,15 @@ public class DynmapPlugin {
             return t -> t != null && seen.add(keyExtractor.apply(t));
         }
 
-        private Stream<ModContainer> getModContainers() {
-            FabricLoader loader = FabricLoader.getInstance();
-            return Stream.of(
-                    loader.getEntrypointContainers("main", ModInitializer.class),
-                    loader.getEntrypointContainers("server", DedicatedServerModInitializer.class),
-                    loader.getEntrypointContainers("client", ClientModInitializer.class)
-            )
-                    .flatMap(Collection::stream)
-                    .map(EntrypointContainer::getProvider)
-                    .filter(distinctByKeyAndNonNull(container -> container.getMetadata().getId()));
-        }
-
         private Optional<ModContainer> getModContainerById(String id) {
-            return getModContainers()
-                    .filter(container -> container.getMetadata().getId().equals(id))
-                    .findFirst();
+            return FabricLoader.getInstance().getModContainer(id);
         }
 
         @Override
         public boolean isModLoaded(String name) {
-            FabricLoader loader = FabricLoader.getInstance();
-             boolean loaded = getModContainerById(name).isPresent();
-            if (loaded) {
-                modsused.add(name);
-            }
-            return loaded;
+            return FabricLoader.getInstance().getModContainer(name).isPresent();
         }
+
         @Override
         public String getModVersion(String name) {
             Optional<ModContainer> mod = getModContainerById(name);    // Try case sensitive lookup
@@ -945,7 +935,7 @@ public class DynmapPlugin {
         }
         @Override
         public double getServerTPS() {
-            return tps;
+            return plugin.tps;
         }
 
         @Override
@@ -969,7 +959,11 @@ public class DynmapPlugin {
         }
         @Override
         public List<String> getModList() {
-            return getModContainers().map(container -> container.getMetadata().getId()).collect(Collectors.toList());
+            return FabricLoader.getInstance()
+                    .getAllMods()
+                    .stream()
+                    .map(container -> container.getMetadata().getId())
+                    .collect(Collectors.toList());
         }
 
         @Override
