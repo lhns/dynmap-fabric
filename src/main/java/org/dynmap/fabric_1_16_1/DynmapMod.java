@@ -19,6 +19,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class DynmapMod implements ModInitializer, DedicatedServerModInitializer, ClientModInitializer {
+    private static final String MODID = "dynmap";
+    private static final ModContainer MOD_CONTAINER = FabricLoader.getInstance().getModContainer(MODID)
+            .orElseThrow(() -> new RuntimeException("Failed to get mod container: " + MODID));
+
     // The instance of your mod that Fabric uses.
     public static DynmapMod instance;
 
@@ -47,11 +51,7 @@ public class DynmapMod implements ModInitializer, DedicatedServerModInitializer,
     public void onInitialize() {
         instance = this;
 
-        // TODO: Just get the mod container using `FabricLoader` lol
-        ModContainer container = FabricLoader.getInstance().getEntrypointContainers("main", ModInitializer.class)
-                .stream().filter(e -> this == e.getEntrypoint()).findAny().get().getProvider();
-
-        Path path = container.getRootPath();
+        Path path = MOD_CONTAINER.getRootPath();
         try {
             jarfile = new File(DynmapCore.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         } catch (URISyntaxException e) {
@@ -63,7 +63,7 @@ public class DynmapMod implements ModInitializer, DedicatedServerModInitializer,
             jarfile = path.toFile();
         }
 
-        ver = container.getMetadata().getVersion().getFriendlyString();
+        ver = MOD_CONTAINER.getMetadata().getVersion().getFriendlyString();
 
         Log.setLogger(new DynmapPlugin.OurLog());
         org.dynmap.modsupport.ModSupportImpl.init();
