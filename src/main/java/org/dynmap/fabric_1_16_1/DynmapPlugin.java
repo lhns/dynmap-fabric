@@ -315,12 +315,11 @@ public class DynmapPlugin {
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
     public class ChatHandler {
-        public void handleChat(ServerChatEvents.ServerChatEvent event) {
-            String msg = event.getMessage();
-            if (!msg.startsWith("/")) {
+        public void handleChat(ServerPlayerEntity player, String message) {
+            if (!message.startsWith("/")) {
                 ChatMessage cm = new ChatMessage();
-                cm.message = msg;
-                cm.sender = event.getPlayer();
+                cm.message = message;
+                cm.sender = player;
                 msgqueue.add(cm);
             }
         }
@@ -616,7 +615,7 @@ public class DynmapPlugin {
                 case PLAYER_CHAT:
                     if (chathandler == null) {
                         chathandler = new ChatHandler();
-                        ServerChatEvents.EVENT.register(event -> chathandler.handleChat(event));
+                        ServerChatEvents.EVENT.register((player, message) -> chathandler.handleChat(player, message));
                     }
                     break;
 

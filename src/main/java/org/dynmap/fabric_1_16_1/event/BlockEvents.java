@@ -9,7 +9,6 @@ public class BlockEvents {
     private BlockEvents() {
     }
 
-    // TODO: implement
     public static Event<BlockCallback> EVENT = EventFactory.createArrayBacked(BlockCallback.class,
             (listeners) -> (world, pos) -> {
                 for (BlockCallback callback : listeners) {

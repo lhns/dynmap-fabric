@@ -8,35 +8,16 @@ public class ServerChatEvents {
     private ServerChatEvents() {
     }
 
-    // TODO call from ServerPlayNetworkHandler.onGameMessage
     public static Event<ServerChatCallback> EVENT = EventFactory.createArrayBacked(ServerChatCallback.class,
-            (listeners) -> (event) -> {
+            (listeners) -> (player, message) -> {
                 for (ServerChatCallback callback : listeners) {
-                    callback.onChatMessage(event);
+                    callback.onChatMessage(player, message);
                 }
             }
     );
 
     @FunctionalInterface
     public interface ServerChatCallback {
-        void onChatMessage(ServerChatEvent event);
-    }
-
-    public static class ServerChatEvent {
-        private final ServerPlayerEntity player;
-        private final String message;
-
-        public ServerChatEvent(ServerPlayerEntity player, String message) {
-            this.player = player;
-            this.message = message;
-        }
-
-        public ServerPlayerEntity getPlayer() {
-            return player;
-        }
-
-        public String getMessage() {
-            return message;
-        }
+        void onChatMessage(ServerPlayerEntity player, String message);
     }
 }
