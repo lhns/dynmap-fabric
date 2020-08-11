@@ -6,11 +6,9 @@
   "mixins": [
     "BiomeEffectsAccessor",
     "PlayerManagerMixin",
-    "ServerPlayNetworkHandlerAccessor",
     "ServerPlayNetworkHandlerMixin",
     "ThreadedAnvilChunkStorageAccessor",
     "ThreadedAnvilChunkStorageMixin",
-    "WorldChunkAccessor",
     "WorldChunkMixin"
   ],
   "injectors": {
