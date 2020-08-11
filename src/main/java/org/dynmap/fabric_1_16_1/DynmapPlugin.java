@@ -266,13 +266,13 @@ public class DynmapPlugin {
         return nh.connection;
     }
 
-    private FabricPlayer getOrAddPlayer(PlayerEntity p) {
-        String name = p.getName().getString();
+    private FabricPlayer getOrAddPlayer(ServerPlayerEntity player) {
+        String name = player.getName().getString();
         FabricPlayer fp = players.get(name);
         if(fp != null) {
-            fp.player = p;
+            fp.player = player;
         } else {
-            fp = new FabricPlayer(this, p);
+            fp = new FabricPlayer(this, player);
             players.put(name, fp);
         }
         return fp;
@@ -313,7 +313,7 @@ public class DynmapPlugin {
 
     private class ChatMessage {
         String message;
-        PlayerEntity sender;
+        ServerPlayerEntity sender;
     }
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
@@ -477,16 +477,16 @@ public class DynmapPlugin {
         @Override
         public DynmapPlayer[] getOnlinePlayers()
         {
-            if(server.getPlayerManager() == null)
-                return new DynmapPlayer[0];
-            List<ServerPlayerEntity> playlist = server.getPlayerManager().getPlayerList();
-            int pcnt = playlist.size();
-            DynmapPlayer[] dplay = new DynmapPlayer[pcnt];
+            if(server.getPlayerManager() == null) return new DynmapPlayer[0];
 
-            for (int i = 0; i < pcnt; i++)
+            List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
+            int playerCount = players.size();
+            DynmapPlayer[] dplay = new DynmapPlayer[players.size()];
+
+            for (int i = 0; i < playerCount; i++)
             {
-                PlayerEntity p = playlist.get(i);
-                dplay[i] = getOrAddPlayer(p);
+                ServerPlayerEntity player = players.get(i);
+                dplay[i] = getOrAddPlayer(player);
             }
 
             return dplay;
@@ -503,13 +503,12 @@ public class DynmapPlugin {
         {
             List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
 
-            for (Object o : players)
+            for (ServerPlayerEntity player : players)
             {
-                PlayerEntity p = (PlayerEntity)o;
 
-                if (p.getName().getString().equalsIgnoreCase(name))
+                if (player.getName().getString().equalsIgnoreCase(name))
                 {
-                    return getOrAddPlayer(p);
+                    return getOrAddPlayer(player);
                 }
             }
 
@@ -1287,7 +1286,7 @@ public class DynmapPlugin {
     void onCommand(ServerCommandSource sender, String cmd, String[] args)
     {
         DynmapCommandSender dsender;
-        PlayerEntity psender;
+        ServerPlayerEntity psender;
         try {
             psender = sender.getPlayer();
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException x) {

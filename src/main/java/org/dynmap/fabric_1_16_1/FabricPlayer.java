@@ -32,19 +32,18 @@ public class FabricPlayer extends DynmapPlugin.FabricCommandSender implements Dy
 	private static final Gson GSON = new GsonBuilder().create();
 	private final DynmapPlugin plugin;
 	// FIXME: Proper setter
-	PlayerEntity player;
+	ServerPlayerEntity player;
 	private final String skinurl;
 	private final UUID uuid;
 
-
-	public FabricPlayer(DynmapPlugin plugin, PlayerEntity p)
+	public FabricPlayer(DynmapPlugin plugin, ServerPlayerEntity player)
 	{
 		this.plugin = plugin;
-		player = p;
+		this.player = player;
 		String url = null;
-		if (player != null) {
-			uuid = player.getUuid();
-			GameProfile prof = player.getGameProfile();
+		if (this.player != null) {
+			uuid = this.player.getUuid();
+			GameProfile prof = this.player.getGameProfile();
 			if (prof != null) {
 				Property textureProperty = Iterables.getFirst(prof.getProperties().get("textures"), null);
 
@@ -123,8 +122,8 @@ public class FabricPlayer extends DynmapPlugin.FabricCommandSender implements Dy
 	@Override
 	public InetSocketAddress getAddress()
 	{
-		if((player != null) && (player instanceof ServerPlayerEntity)) {
-			ServerPlayNetworkHandler networkHandler = ((ServerPlayerEntity)player).networkHandler;
+		if(player != null) {
+			ServerPlayNetworkHandler networkHandler = player.networkHandler;
 			if((networkHandler != null) && (networkHandler.getConnection() != null)) {
 				SocketAddress sa = networkHandler.getConnection().getAddress();
 				if(sa instanceof InetSocketAddress) {
@@ -239,18 +238,18 @@ public class FabricPlayer extends DynmapPlugin.FabricCommandSender implements Dy
 	 */
 	@Override
 	public void sendTitleText(String title, String subtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
-		if (player instanceof ServerPlayerEntity) {
-			ServerPlayerEntity mp = (ServerPlayerEntity) player;
+		if (player != null) {
+			ServerPlayerEntity player = this.player;
 			TitleS2CPacket times = new TitleS2CPacket(fadeInTicks, stayTicks, fadeOutTicks);
-			mp.networkHandler.sendPacket(times);
+			player.networkHandler.sendPacket(times);
 			if (title != null) {
 				TitleS2CPacket titlepkt = new TitleS2CPacket(TitleS2CPacket.Action.TITLE, new LiteralText(title));
-				mp.networkHandler.sendPacket(titlepkt);
+				player.networkHandler.sendPacket(titlepkt);
 			}
 
 			if (subtitle != null) {
 				TitleS2CPacket subtitlepkt = new TitleS2CPacket(TitleS2CPacket.Action.SUBTITLE, new LiteralText(subtitle));
-				mp.networkHandler.sendPacket(subtitlepkt);
+				player.networkHandler.sendPacket(subtitlepkt);
 			}
 		}
 	}
