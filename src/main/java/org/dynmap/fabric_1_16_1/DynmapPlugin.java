@@ -109,13 +109,13 @@ public class DynmapPlugin {
     private HashMap<String, Integer> sortWeights = new HashMap<String, Integer>();
     // Drop world load ticket after 30 seconds
     private long worldIdleTimeoutNS = 30 * 1000000000L;
-    private HashMap<String, ForgeWorld> worlds = new HashMap<String, ForgeWorld>();
+    private HashMap<String, FabricWorld> worlds = new HashMap<String, FabricWorld>();
     private WorldAccess last_world;
-    private ForgeWorld last_fworld;
-    private Map<String, ForgePlayer> players = new HashMap<String, ForgePlayer>();
+    private FabricWorld last_fworld;
+    private Map<String, FabricPlayer> players = new HashMap<String, FabricPlayer>();
     //TODO private ForgeMetrics metrics;
     private HashSet<String> modsused = new HashSet<String>();
-    private ForgeServer fserver = new ForgeServer();
+    private FabricServer fserver = new FabricServer();
     private boolean tickregistered = false;
     // TPS calculator
     private double tps;
@@ -143,7 +143,7 @@ public class DynmapPlugin {
 
     private Map<String, LongOpenHashSet> knownloadedchunks = new HashMap<String, LongOpenHashSet>();
     private boolean didInitialKnownChunks = false;
-    private void addKnownChunk(ForgeWorld fw, ChunkPos pos) {
+    private void addKnownChunk(FabricWorld fw, ChunkPos pos) {
         LongOpenHashSet cset = knownloadedchunks.get(fw.getName());
         if (cset == null) {
             cset = new LongOpenHashSet();
@@ -151,13 +151,13 @@ public class DynmapPlugin {
         }
         cset.add(pos.toLong());
     }
-    private void removeKnownChunk(ForgeWorld fw, ChunkPos pos) {
+    private void removeKnownChunk(FabricWorld fw, ChunkPos pos) {
         LongOpenHashSet cset = knownloadedchunks.get(fw.getName());
         if (cset != null) {
             cset.remove(pos.toLong());
         }
     }
-    private boolean checkIfKnownChunk(ForgeWorld fw, ChunkPos pos) {
+    private boolean checkIfKnownChunk(FabricWorld fw, ChunkPos pos) {
         LongOpenHashSet cset = knownloadedchunks.get(fw.getName());
         if (cset != null) {
             return cset.contains(pos.toLong());
@@ -262,14 +262,14 @@ public class DynmapPlugin {
         return nh.connection;
     }
 
-    private ForgePlayer getOrAddPlayer(PlayerEntity p) {
+    private FabricPlayer getOrAddPlayer(PlayerEntity p) {
         String name = p.getName().getString();
-        ForgePlayer fp = players.get(name);
+        FabricPlayer fp = players.get(name);
         if(fp != null) {
             fp.player = p;
         }
         else {
-            fp = new ForgePlayer(p);
+            fp = new FabricPlayer(p);
             players.put(name, fp);
         }
         return fp;
@@ -431,7 +431,7 @@ public class DynmapPlugin {
     /**
      * Server access abstraction class
      */
-    public class ForgeServer extends DynmapServerInterface
+    public class FabricServer extends DynmapServerInterface
     {
         /* Server thread scheduler */
         private final Object schedlock = new Object();
@@ -440,7 +440,7 @@ public class DynmapPlugin {
         private long cur_tick_starttime;
         private PriorityQueue<TaskRecord> runqueue = new PriorityQueue<TaskRecord>();
 
-        public ForgeServer() {
+        public FabricServer() {
         }
 
         private GameProfile getProfileByName(String player) {
@@ -755,7 +755,7 @@ public class DynmapPlugin {
         public MapChunkCache createMapChunkCache(DynmapWorld w, List<DynmapChunk> chunks,
                                                  boolean blockdata, boolean highesty, boolean biome, boolean rawbiome)
         {
-            ForgeMapChunkCache c = (ForgeMapChunkCache) w.getChunkCache(chunks);
+            FabricMapChunkCache c = (FabricMapChunkCache) w.getChunkCache(chunks);
             if(c == null) {
                 return null;
             }
@@ -791,11 +791,11 @@ public class DynmapPlugin {
             }
 
             //Now handle any chunks in server thread that are already loaded (on server thread)
-            final ForgeMapChunkCache cc = c;
+            final FabricMapChunkCache cc = c;
             Future<Boolean> f = this.callSyncMethod(new Callable<Boolean>() {
                 public Boolean call() throws Exception {
                     // Update busy state on world
-                    ForgeWorld fw = (ForgeWorld)cc.getWorld();
+                    FabricWorld fw = (FabricWorld)cc.getWorld();
                     //TODO
                     //setBusy(fw.getWorld());
                     cc.getLoadedChunks();
@@ -896,7 +896,7 @@ public class DynmapPlugin {
                 if(cm.sender != null)
                     dp = getOrAddPlayer(cm.sender);
                 else
-                    dp = new ForgePlayer(null);
+                    dp = new FabricPlayer(null);
 
                 core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
             }
@@ -1035,14 +1035,14 @@ public class DynmapPlugin {
     /**
      * Player access abstraction class
      */
-    public class ForgePlayer extends ForgeCommandSender implements DynmapPlayer
+    public class FabricPlayer extends FabricCommandSender implements DynmapPlayer
     {
         private PlayerEntity player;
         private final String skinurl;
         private final UUID uuid;
 
 
-        public ForgePlayer(PlayerEntity p)
+        public FabricPlayer(PlayerEntity p)
         {
             player = p;
             String url = null;
@@ -1266,15 +1266,15 @@ public class DynmapPlugin {
         }
     }
     /* Handler for generic console command sender */
-    public class ForgeCommandSender implements DynmapCommandSender
+    public class FabricCommandSender implements DynmapCommandSender
     {
         private ServerCommandSource sender;
 
-        protected ForgeCommandSender() {
+        protected FabricCommandSender() {
             sender = null;
         }
 
-        public ForgeCommandSender(ServerCommandSource send)
+        public FabricCommandSender(ServerCommandSource send)
         {
             sender = send;
         }
@@ -1391,7 +1391,7 @@ public class DynmapPlugin {
         core.setMinecraftVersion(mcver);
         core.setDataFolder(dataDirectory);
         core.setServer(fserver);
-        ForgeMapChunkCache.init();
+        FabricMapChunkCache.init();
         core.setTriggerDefault(TRIGGER_DEFAULTS);
         core.setBiomeNames(getBiomeNames());
 
@@ -1463,7 +1463,7 @@ public class DynmapPlugin {
         /* Initialized the currently loaded worlds */
         if(server.getWorlds() != null) {
             for (ServerWorld world : server.getWorlds()) {
-                ForgeWorld w = this.getWorld(world);
+                FabricWorld w = this.getWorld(world);
                 /*NOTYET - need rest of forge
                 if(DimensionManager.getWorld(world.provider.getDimensionId()) == null) { // If not loaded
                     w.setWorldUnloaded();
@@ -1471,7 +1471,7 @@ public class DynmapPlugin {
                 */
             }
         }
-        for(ForgeWorld w : worlds.values()) {
+        for(FabricWorld w : worlds.values()) {
             if (core.processWorldLoad(w)) {   /* Have core process load first - fire event listeners if good load after */
                 if(w.isLoaded()) {
                     core.listenerManager.processWorldEvent(DynmapListenerManager.EventType.WORLD_LOAD, w);
@@ -1528,11 +1528,11 @@ public class DynmapPlugin {
 
         if (psender != null)
         {
-            dsender = new ForgePlayer(psender);
+            dsender = new FabricPlayer(psender);
         }
         else
         {
-            dsender = new ForgeCommandSender(sender);
+            dsender = new FabricCommandSender(sender);
         }
 
         core.processCommand(dsender, cmd, cmd, args);
@@ -1595,7 +1595,7 @@ public class DynmapPlugin {
         public void handleWorldLoad(MinecraftServer server, ServerWorld world) {
             if(!core_enabled) return;
 
-            final ForgeWorld fw = getWorld(world);
+            final FabricWorld fw = getWorld(world);
             // This event can be called from off server thread, so push processing there
             core.getServer().scheduleServerTask(new Runnable() {
                 public void run() {
@@ -1608,7 +1608,7 @@ public class DynmapPlugin {
         public void handleWorldUnload(MinecraftServer server, ServerWorld world) {
             if(!core_enabled) return;
 
-            final ForgeWorld fw = getWorld(world);
+            final FabricWorld fw = getWorld(world);
             if(fw != null) {
                 // This event can be called from off server thread, so push processing there
                 core.getServer().scheduleServerTask(new Runnable() {
@@ -1629,7 +1629,7 @@ public class DynmapPlugin {
             if(!onchunkgenerate) return;
 
             if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(world, false);
+                FabricWorld fw = getWorld(world, false);
                 if (fw != null) {
                     addKnownChunk(fw, chunk.getPos());
                 }
@@ -1640,7 +1640,7 @@ public class DynmapPlugin {
             if(!onchunkgenerate) return;
 
             if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(world, false);
+                FabricWorld fw = getWorld(world, false);
                 ChunkPos cp = chunk.getPos();
                 if (fw != null) {
                     if (!checkIfKnownChunk(fw, cp)) {
@@ -1668,7 +1668,7 @@ public class DynmapPlugin {
             if (!onchunkgenerate) return;
 
             if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(world, false);
+                FabricWorld fw = getWorld(world, false);
                 ChunkPos cp = chunk.getPos();
                 if (fw != null) {
                     if (!checkIfKnownChunk(fw, cp)) {
@@ -1694,9 +1694,10 @@ public class DynmapPlugin {
         public void handleBlockEvent(BlockEvents.BlockEvent event) {
             if (!core_enabled) return;
             if (!onblockchange) return;
+
             BlockUpdateRec r = new BlockUpdateRec();
             r.w = event.getWorld();
-            ForgeWorld fw = getWorld(r.w, false);
+            FabricWorld fw = getWorld(r.w, false);
             if (fw == null) return;
             r.wid = fw.getName();
             BlockPos p = event.getPos();
@@ -1725,7 +1726,10 @@ public class DynmapPlugin {
             worldTracker = new WorldTracker();
             ServerWorldEvents.LOAD.register((server, world) -> worldTracker.handleWorldLoad(server, world));
             ServerWorldEvents.UNLOAD.register((server, world) -> worldTracker.handleWorldUnload(server, world));
-            ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> worldTracker.handleChunkLoad(world, chunk));
+            ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
+                worldTracker.handleChunkLoad(world, chunk);
+                ChunkDataEvents.SAVE.invoker().onSave(world, chunk); // TODO: implement properly
+            });
             ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> worldTracker.handleChunkUnload(world, chunk));
             ChunkDataEvents.SAVE.register((world, chunk) -> worldTracker.handleChunkDataSave(world, chunk));
             BlockEvents.EVENT.register(event -> worldTracker.handleBlockEvent(event));
@@ -1733,7 +1737,7 @@ public class DynmapPlugin {
         // Prime the known full chunks
         if (onchunkgenerate && (server.getWorlds() != null)) {
             for (ServerWorld world : server.getWorlds()) {
-                ForgeWorld fw = getWorld(world);
+                FabricWorld fw = getWorld(world);
                 if (fw == null) continue;
                 Long2ObjectLinkedOpenHashMap<ChunkHolder> chunks = ((ThreadedAnvilChunkStorageAccessor)world.getChunkManager().threadedAnvilChunkStorage).getChunkHolders();
                 for (Map.Entry<Long, ChunkHolder> k : chunks.long2ObjectEntrySet()) {
@@ -1755,21 +1759,21 @@ public class DynmapPlugin {
         }
     }
 
-    private ForgeWorld getWorldByName(String name) {
+    private FabricWorld getWorldByName(String name) {
         return worlds.get(name);
     }
 
-    private ForgeWorld getWorld(WorldAccess w) {
+    private FabricWorld getWorld(WorldAccess w) {
         return getWorld(w, true);
     }
 
-    private ForgeWorld getWorld(WorldAccess w, boolean add_if_not_found) {
+    private FabricWorld getWorld(WorldAccess w, boolean add_if_not_found) {
         if(last_world == w) {
             return last_fworld;
         }
-        String wname = ForgeWorld.getWorldName(w);
+        String wname = FabricWorld.getWorldName(w);
 
-        for(ForgeWorld fw : worlds.values()) {
+        for(FabricWorld fw : worlds.values()) {
             if(fw.getRawName().equals(wname)) {
                 last_world = w;
                 last_fworld = fw;
@@ -1779,10 +1783,10 @@ public class DynmapPlugin {
                 return fw;
             }
         }
-        ForgeWorld fw = null;
+        FabricWorld fw = null;
         if(add_if_not_found) {
             /* Add to list if not found */
-            fw = new ForgeWorld(w);
+            fw = new FabricWorld(w);
             worlds.put(fw.getName(), fw);
         }
         last_world = w;
@@ -1800,13 +1804,13 @@ public class DynmapPlugin {
             vals.put("height",  fw.worldheight);
             vals.put("sealevel", fw.sealevel);
             vals.put("nether",  fw.isNether());
-            vals.put("the_end",  ((ForgeWorld)fw).isTheEnd());
+            vals.put("the_end",  ((FabricWorld)fw).isTheEnd());
             vals.put("title", fw.getTitle());
             lst.add(vals);
         }
         cn.put("worlds", lst);
         cn.put("useSaveFolderAsName", useSaveFolder);
-        cn.put("maxWorldHeight", ForgeWorld.getMaxWorldHeight());
+        cn.put("maxWorldHeight", FabricWorld.getMaxWorldHeight());
 
         cn.save();
     }
@@ -1819,7 +1823,7 @@ public class DynmapPlugin {
         ConfigurationNode cn = new ConfigurationNode(f);
         cn.load();
         // If defined, use maxWorldHeight
-        ForgeWorld.setMaxWorldHeight(cn.getInteger("maxWorldHeight", 256));
+        FabricWorld.setMaxWorldHeight(cn.getInteger("maxWorldHeight", 256));
 
         // If setting defined, use it
         if (cn.containsKey("useSaveFolderAsName")) {
@@ -1840,7 +1844,7 @@ public class DynmapPlugin {
                 boolean theend = (Boolean)world.get("the_end");
                 String title = (String)world.get("title");
                 if(name != null) {
-                    ForgeWorld fw = new ForgeWorld(name, height, sealevel, nether, theend, title);
+                    FabricWorld fw = new FabricWorld(name, height, sealevel, nether, theend, title);
                     fw.setWorldUnloaded();
                     core.processWorldLoad(fw);
                     worlds.put(fw.getName(), fw);

@@ -15,7 +15,7 @@ import org.dynmap.utils.Polygon;
 
 import java.util.List;
 
-public class ForgeWorld extends DynmapWorld {
+public class FabricWorld extends DynmapWorld {
     private WorldAccess world;
     private final boolean skylight;
     private final boolean isnether;
@@ -45,7 +45,7 @@ public class ForgeWorld extends DynmapWorld {
         }
     }
 
-    public ForgeWorld(WorldAccess w) {
+    public FabricWorld(WorldAccess w) {
         this(getWorldName(w), w.getWorld().getHeight(),
                 w.getWorld().getSeaLevel(),
                 w.getWorld().getRegistryKey() == World.END,
@@ -54,7 +54,7 @@ public class ForgeWorld extends DynmapWorld {
         setWorldLoaded(w);
     }
 
-    public ForgeWorld(String name, int height, int sealevel, boolean nether, boolean the_end, String deftitle) {
+    public FabricWorld(String name, int height, int sealevel, boolean nether, boolean the_end, String deftitle) {
         super(name, (height > maxWorldHeight) ? maxWorldHeight : height, sealevel);
         world = null;
         setTitle(deftitle);
@@ -191,7 +191,7 @@ public class ForgeWorld extends DynmapWorld {
     @Override
     public MapChunkCache getChunkCache(List<DynmapChunk> chunks) {
         if (world != null) {
-            ForgeMapChunkCache c = new ForgeMapChunkCache();
+            FabricMapChunkCache c = new FabricMapChunkCache();
             c.setChunks(this, chunks);
             return c;
         }

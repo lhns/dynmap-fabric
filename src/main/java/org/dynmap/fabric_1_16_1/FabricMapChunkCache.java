@@ -26,7 +26,7 @@ import java.util.*;
 /**
  * Container for managing chunks - dependent upon using chunk snapshots, since rendering is off server thread
  */
-public class ForgeMapChunkCache extends MapChunkCache {
+public class FabricMapChunkCache extends MapChunkCache {
     private static boolean init = false;
     private static Field updateEntityTick = null;
     /* ChunkManager fields */
@@ -789,11 +789,11 @@ public class ForgeMapChunkCache extends MapChunkCache {
     /**
      * Construct empty cache
      */
-    public ForgeMapChunkCache() {
+    public FabricMapChunkCache() {
         init();
     }
 
-    public void setChunks(ForgeWorld dw, List<DynmapChunk> chunks) {
+    public void setChunks(FabricWorld dw, List<DynmapChunk> chunks) {
         this.dw = dw;
         this.w = dw.getWorld();
         if (dw.isLoaded()) {
