@@ -404,6 +404,8 @@ public class DynmapPlugin {
                 return true;
             }
         }
+
+        // TODO: Consider whether cheats are enabled
         return (server.isSinglePlayer() && player.equalsIgnoreCase(server.getUserName()));
     }
 
@@ -1282,10 +1284,6 @@ public class DynmapPlugin {
         core.processCommand(dsender, cmd, cmd, args);
     }
 
-    DynmapLocation toLoc(World worldObj, double x, double y, double z) {
-        return new DynmapLocation(DynmapPlugin.this.getWorld(worldObj).getName(), x, y, z);
-    }
-
     public class PlayerTracker {
         public void onPlayerLogin(PlayerEvents.PlayerLoggedInEvent event) {
             if (!core_enabled) return;
@@ -1536,7 +1534,7 @@ public class DynmapPlugin {
     }
 
     private void saveWorlds() {
-        File f = new File(core.getDataFolder(), "forgeworlds.yml");
+        File f = new File(core.getDataFolder(), FabricWorld.SAVED_WORLDS_FILE);
         ConfigurationNode cn = new ConfigurationNode(f);
         ArrayList<HashMap<String, Object>> lst = new ArrayList<HashMap<String, Object>>();
         for (DynmapWorld fw : core.mapManager.getWorlds()) {
@@ -1557,7 +1555,7 @@ public class DynmapPlugin {
     }
 
     private void loadWorlds() {
-        File f = new File(core.getDataFolder(), "forgeworlds.yml");
+        File f = new File(core.getDataFolder(), FabricWorld.SAVED_WORLDS_FILE);
         if (f.canRead() == false) {
             useSaveFolder = true;
             return;
@@ -1573,7 +1571,7 @@ public class DynmapPlugin {
         }
         List<Map<String, Object>> lst = cn.getMapList("worlds");
         if (lst == null) {
-            Log.warning("Discarding bad forgeworlds.yml");
+            Log.warning(String.format("Discarding bad %s", FabricWorld.SAVED_WORLDS_FILE));
             return;
         }
 
@@ -1592,7 +1590,7 @@ public class DynmapPlugin {
                     worlds.put(fw.getName(), fw);
                 }
             } catch (Exception x) {
-                Log.warning("Unable to load saved worlds from forgeworlds.yml");
+                Log.warning(String.format("Unable to load saved worlds from %s", FabricWorld.SAVED_WORLDS_FILE));
                 return;
             }
         }
