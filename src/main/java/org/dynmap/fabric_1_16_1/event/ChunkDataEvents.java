@@ -1,0 +1,25 @@
+package org.dynmap.fabric_1_16_1.event;
+
+import net.fabricmc.fabric.api.event.Event;
+import net.fabricmc.fabric.api.event.EventFactory;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.chunk.WorldChunk;
+
+public class ChunkDataEvents {
+    private ChunkDataEvents() {
+    }
+
+    // TODO: implement
+    public static Event<Save> SAVE = EventFactory.createArrayBacked(Save.class,
+            (listeners) -> (world, chunk) -> {
+                for (Save callback : listeners) {
+                    callback.onSave(world, chunk);
+                }
+            }
+    );
+
+    @FunctionalInterface
+    public interface Save {
+        void onSave(ServerWorld world, WorldChunk chunk);
+    }
+}

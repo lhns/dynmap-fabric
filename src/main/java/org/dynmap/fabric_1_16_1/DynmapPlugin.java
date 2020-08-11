@@ -19,18 +19,9 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
-import net.fabricmc.fabric.api.event.server.ServerTickCallback;
-import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
-import net.minecraft.world.chunk.WorldChunk;
-import org.dynmap.fabric_1_16_1.event.ServerChatCallback;
-import org.dynmap.fabric_1_16_1.event.ServerChatEvent;
-import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
-import org.dynmap.fabric_1_16_1.mixin.ThreadedAnvilChunkStorageAccessor;
-import org.dynmap.fabric_1_16_1.permissions.FilePermissions;
-import org.dynmap.fabric_1_16_1.permissions.OpPermissions;
-import org.dynmap.fabric_1_16_1.permissions.PermissionProvider;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FluidBlock;
@@ -67,12 +58,22 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.WorldChunk;
 import org.apache.commons.codec.Charsets;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
 import org.dynmap.common.*;
+import org.dynmap.fabric_1_16_1.event.BlockEvents;
+import org.dynmap.fabric_1_16_1.event.ChunkDataEvents;
+import org.dynmap.fabric_1_16_1.event.PlayerEvents;
+import org.dynmap.fabric_1_16_1.event.ServerChatEvents;
+import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
+import org.dynmap.fabric_1_16_1.mixin.ThreadedAnvilChunkStorageAccessor;
+import org.dynmap.fabric_1_16_1.permissions.FilePermissions;
+import org.dynmap.fabric_1_16_1.permissions.OpPermissions;
+import org.dynmap.fabric_1_16_1.permissions.PermissionProvider;
 import org.dynmap.permissions.PermissionsHandler;
 import org.dynmap.renderer.DynmapBlockState;
 import org.dynmap.utils.DynmapLogger;
@@ -314,9 +315,9 @@ public class DynmapPlugin {
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
     public class ChatHandler {
-        public void handleChat(ServerChatEvent event) {
+        public void handleChat(ServerChatEvents.ServerChatEvent event) {
             String msg = event.getMessage();
-            if(!msg.startsWith("/")) {
+            if (!msg.startsWith("/")) {
                 ChatMessage cm = new ChatMessage();
                 cm.message = msg;
                 cm.sender = event.getPlayer();
@@ -615,7 +616,7 @@ public class DynmapPlugin {
                 case PLAYER_CHAT:
                     if (chathandler == null) {
                         chathandler = new ChatHandler();
-                        ServerChatCallback.EVENT.register(event -> chathandler.handleChat(event));
+                        ServerChatEvents.EVENT.register(event -> chathandler.handleChat(event));
                     }
                     break;
 
@@ -1543,9 +1544,8 @@ public class DynmapPlugin {
     }
 
     public class PlayerTracker {
-        @SubscribeEvent
-        public void onPlayerLogin(PlayerLoggedInEvent event) {
-            if(!core_enabled) return;
+        public void onPlayerLogin(PlayerEvents.PlayerLoggedInEvent event) {
+            if (!core_enabled) return;
             final DynmapPlayer dp = getOrAddPlayer(event.getPlayer());
             /* This event can be called from off server thread, so push processing there */
             core.getServer().scheduleServerTask(new Runnable() {
@@ -1554,9 +1554,9 @@ public class DynmapPlugin {
                 }
             }, 2);
         }
-        @SubscribeEvent
-        public void onPlayerLogout(PlayerLoggedOutEvent event) {
-            if(!core_enabled) return;
+
+        public void onPlayerLogout(PlayerEvents.PlayerLoggedOutEvent event) {
+            if (!core_enabled) return;
             final DynmapPlayer dp = getOrAddPlayer(event.getPlayer());
             final String name = event.getPlayer().getName().getString();
             /* This event can be called from off server thread, so push processing there */
@@ -1567,15 +1567,15 @@ public class DynmapPlugin {
                 }
             }, 0);
         }
-        @SubscribeEvent
-        public void onPlayerChangedDimension(PlayerChangedDimensionEvent event) {
-            if(!core_enabled) return;
-            getOrAddPlayer(event.getPlayer());	// Freshen player object reference
+
+        public void onPlayerChangedDimension(PlayerEvents.PlayerChangedDimensionEvent event) {
+            if (!core_enabled) return;
+            getOrAddPlayer(event.getPlayer());    // Freshen player object reference
         }
-        @SubscribeEvent
-        public void onPlayerRespawn(PlayerRespawnEvent event) {
-            if(!core_enabled) return;
-            getOrAddPlayer(event.getPlayer());	// Freshen player object reference
+
+        public void onPlayerRespawn(PlayerEvents.PlayerRespawnEvent event) {
+            if (!core_enabled) return;
+            getOrAddPlayer(event.getPlayer());    // Freshen player object reference
         }
     }
     private PlayerTracker playerTracker = null;
@@ -1584,7 +1584,10 @@ public class DynmapPlugin {
     {
         if (playerTracker == null) {
             playerTracker = new PlayerTracker();
-            MinecraftForge.EVENT_BUS.register(playerTracker);
+            PlayerEvents.PLAYER_LOGGED_IN.register(event -> playerTracker.onPlayerLogin(event));
+            PlayerEvents.PLAYER_LOGGED_OUT.register(event -> playerTracker.onPlayerLogout(event));
+            PlayerEvents.PLAYER_CHANGED_DIMENSION.register(event -> playerTracker.onPlayerChangedDimension(event));
+            PlayerEvents.PLAYER_RESPAWN.register(event -> playerTracker.onPlayerRespawn(event));
         }
     }
 
@@ -1653,47 +1656,44 @@ public class DynmapPlugin {
                         // If not empty AND not initial scan
                         if (ymax > 0) {
                             Log.info("New generated chunk detected at " + cp + " for " + fw.getName());
-                            mapManager.touchVolume(fw.getName(), x, 0, z, x+15, ymax, z+16, "chunkgenerate");
+                            mapManager.touchVolume(fw.getName(), x, 0, z, x + 15, ymax, z + 16, "chunkgenerate");
                         }
                     }
                     removeKnownChunk(fw, cp);
                 }
             }
         }
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleChunkDataSave(ChunkDataEvent.Save event) {
-            if(!onchunkgenerate) return;
 
-            WorldAccess w = event.getWorld();
-            if(!(w instanceof ServerWorld)) return;
-            Chunk c = event.getChunk();
-            if ((c != null) && (c.getStatus() == ChunkStatus.FULL)) {
-                ForgeWorld fw = getWorld(w, false);
-                ChunkPos cp = c.getPos();
+        public void handleChunkDataSave(ServerWorld world, WorldChunk chunk) {
+            if (!onchunkgenerate) return;
+
+            if ((chunk != null) && (chunk.getStatus() == ChunkStatus.FULL)) {
+                ForgeWorld fw = getWorld(world, false);
+                ChunkPos cp = chunk.getPos();
                 if (fw != null) {
                     if (!checkIfKnownChunk(fw, cp)) {
                         int ymax = 0;
-                        ChunkSection[] sections = c.getSectionArray();
-                        for(int i = 0; i < sections.length; i++) {
-                            if((sections[i] != null) && (!sections[i].isEmpty())) {
-                                ymax = 16*(i+1);
+                        ChunkSection[] sections = chunk.getSectionArray();
+                        for (int i = 0; i < sections.length; i++) {
+                            if ((sections[i] != null) && (!sections[i].isEmpty())) {
+                                ymax = 16 * (i + 1);
                             }
                         }
                         int x = cp.x << 4;
                         int z = cp.z << 4;
                         // If not empty AND not initial scan
                         if (ymax > 0) {
-                            mapManager.touchVolume(fw.getName(), x, 0, z, x+15, ymax, z+16, "chunkgenerate");
+                            mapManager.touchVolume(fw.getName(), x, 0, z, x + 15, ymax, z + 16, "chunkgenerate");
                         }
                         addKnownChunk(fw, cp);
                     }
                 }
             }
         }
-        @SubscribeEvent(priority=EventPriority.LOWEST)
-        public void handleBlockEvent(BlockEvent event) {
-            if(!core_enabled) return;
-            if(!onblockchange) return;
+
+        public void handleBlockEvent(BlockEvents.BlockEvent event) {
+            if (!core_enabled) return;
+            if (!onblockchange) return;
             BlockUpdateRec r = new BlockUpdateRec();
             r.w = event.getWorld();
             ForgeWorld fw = getWorld(r.w, false);
@@ -1723,12 +1723,12 @@ public class DynmapPlugin {
             onblockchange = true;
         if ((worldTracker == null) && (onblockchange || onchunkpopulate || onchunkgenerate)) {
             worldTracker = new WorldTracker();
+            ServerWorldEvents.LOAD.register((server, world) -> worldTracker.handleWorldLoad(server, world));
+            ServerWorldEvents.UNLOAD.register((server, world) -> worldTracker.handleWorldUnload(server, world));
             ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> worldTracker.handleChunkLoad(world, chunk));
             ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> worldTracker.handleChunkUnload(world, chunk));
-            ServerWorldEvents.LOAD.register(e -> worldTracker.handleWorldLoad(e));
-            ServerWorldEvents.UNLOAD.register(e -> worldTracker.handleWorldUnload(e));
-
-            MinecraftForge.EVENT_BUS.register(worldTracker);
+            ChunkDataEvents.SAVE.register((world, chunk) -> worldTracker.handleChunkDataSave(world, chunk));
+            BlockEvents.EVENT.register(event -> worldTracker.handleBlockEvent(event));
         }
         // Prime the known full chunks
         if (onchunkgenerate && (server.getWorlds() != null)) {
