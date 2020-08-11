@@ -20,6 +20,12 @@
   "entrypoints": {
     "main": [
       "org.dynmap.fabric_1_16_1.DynmapMod"
+    ],
+    "server": [
+      "org.dynmap.fabric_1_16_1.DynmapMod"
+    ],
+    "client": [
+      "org.dynmap.fabric_1_16_1.DynmapMod"
     ]
   },
   "mixins": [

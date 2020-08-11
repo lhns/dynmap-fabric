@@ -10,8 +10,18 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.sun.nio.zipfs.ZipFileSystem;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.api.DedicatedServerModInitializer;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.server.ServerTickCallback;
+import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+import org.dynmap.fabric_1_16_1.event.ServerChatCallback;
+import org.dynmap.fabric_1_16_1.event.ServerChatEvent;
 import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
 import org.dynmap.fabric_1_16_1.mixin.ThreadedAnvilChunkStorageAccessor;
 import org.dynmap.fabric_1_16_1.permissions.FilePermissions;
@@ -66,12 +76,20 @@ import org.dynmap.utils.MapChunkCache;
 import org.dynmap.utils.VisibilityLimit;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DynmapPlugin {
     private DynmapCore core;
@@ -292,7 +310,6 @@ public class DynmapPlugin {
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
     public class ChatHandler {
-        @SubscribeEvent
         public void handleChat(ServerChatEvent event) {
             String msg = event.getMessage();
             if(!msg.startsWith("/")) {
@@ -594,7 +611,7 @@ public class DynmapPlugin {
                 case PLAYER_CHAT:
                     if (chathandler == null) {
                         chathandler = new ChatHandler();
-                        MinecraftForge.EVENT_BUS.register(chathandler);
+                        ServerChatCallback.EVENT.register(event -> chathandler.handleChat(event));
                     }
                     break;
 
@@ -813,11 +830,7 @@ public class DynmapPlugin {
             return server.getPlayerManager().getCurrentPlayerCount();
         }
 
-        @SubscribeEvent
-        public void tickEvent(TickEvent.ServerTickEvent event)  {
-            if (event.phase == TickEvent.Phase.START) {
-                return;
-            }
+        public void tickEvent(MinecraftServer server)  {
             cur_tick_starttime = System.nanoTime();
             long elapsed = cur_tick_starttime - lasttick;
             lasttick = cur_tick_starttime;
@@ -887,9 +900,33 @@ public class DynmapPlugin {
             }
         }
 
+        private <T> Predicate<T> distinctByKeyAndNonNull(Function<? super T, ?> keyExtractor) {
+            Set<Object> seen = ConcurrentHashMap.newKeySet();
+            return t -> t != null && seen.add(keyExtractor.apply(t));
+        }
+
+        private Stream<ModContainer> getModContainers() {
+            FabricLoader loader = FabricLoader.getInstance();
+            return Stream.of(
+                    loader.getEntrypointContainers("main", ModInitializer.class),
+                    loader.getEntrypointContainers("server", DedicatedServerModInitializer.class),
+                    loader.getEntrypointContainers("client", ClientModInitializer.class)
+            )
+                    .flatMap(Collection::stream)
+                    .map(EntrypointContainer::getProvider)
+                    .filter(distinctByKeyAndNonNull(container -> container.getMetadata().getId()));
+        }
+
+        private Optional<ModContainer> getModContainerById(String id) {
+            return getModContainers()
+                    .filter(container -> container.getMetadata().getId().equals(id))
+                    .findFirst();
+        }
+
         @Override
         public boolean isModLoaded(String name) {
-            boolean loaded = ModList.get().isLoaded(name);
+            FabricLoader loader = FabricLoader.getInstance();
+             boolean loaded = getModContainerById(name).isPresent();
             if (loaded) {
                 modsused.add(name);
             }
@@ -897,12 +934,8 @@ public class DynmapPlugin {
         }
         @Override
         public String getModVersion(String name) {
-            Optional<? extends ModContainer> mod = ModList.get().getModContainerById(name);    // Try case sensitive lookup
-            if (mod.isPresent()) {
-                ArtifactVersion vi = mod.get().getModInfo().getVersion();
-                return vi.getMajorVersion() + "." + vi.getMinorVersion() + "." + vi.getIncrementalVersion();
-            }
-            return null;
+            Optional<ModContainer> mod = getModContainerById(name);    // Try case sensitive lookup
+            return mod.map(modContainer -> modContainer.getMetadata().getVersion().getFriendlyString()).orElse(null);
         }
         @Override
         public double getServerTPS() {
@@ -918,21 +951,19 @@ public class DynmapPlugin {
         }
         @Override
         public File getModContainerFile(String name) {
-            ModFileInfo mfi = ModList.get().getModFileById(name);    // Try case sensitive lookup
-            if (mfi != null) {
-                File f = mfi.getFile().getFilePath().toFile();
-                return f;
+            Optional<ModContainer> container = getModContainerById(name);    // Try case sensitive lookup
+            if (container.isPresent()) {
+                Path path = container.get().getRootPath();
+                if (path.getFileSystem() instanceof ZipFileSystem) {
+                    path = Paths.get(path.getFileSystem().toString());
+                }
+                return path.toFile();
             }
             return null;
         }
         @Override
         public List<String> getModList() {
-            List<ModInfo> mil = ModList.get().getMods();
-            List<String> lst = new ArrayList<String>();
-            for (ModInfo mi : mil) {
-                lst.add(mi.getModId());
-            }
-            return lst;
+            return getModContainers().map(container -> container.getMetadata().getId()).collect(Collectors.toList());
         }
 
         @Override
@@ -945,29 +976,24 @@ public class DynmapPlugin {
         public InputStream openResource(String modid, String rname) {
             if (modid == null) modid = "minecraft";
 
-            Optional<? extends ModContainer> mc = ModList.get().getModContainerById(modid);
-            Object mod = (mc.isPresent()) ? mc.get().getMod() : null;
-            if (mod != null) {
-                ClassLoader cl = mod.getClass().getClassLoader();
-                if (cl == null) cl = ClassLoader.getSystemClassLoader();
-                InputStream is = cl.getResourceAsStream(rname);
-                if (is != null) {
-                    return is;
+            if ("minecraft".equals(modid)) {
+                return MinecraftServer.class.getClassLoader().getResourceAsStream(rname);
+            } else {
+                if (rname.startsWith("/") || rname.startsWith("\\")) {
+                    rname = rname.substring(1);
                 }
+
+                final String finalModid = modid;
+                final String finalRname = rname;
+                return getModContainerById(modid).map(container -> {
+                    try {
+                        return Files.newInputStream(container.getPath(finalRname));
+                    } catch (IOException e) {
+                        Log.severe("Failed to load resource of mod :" + finalModid, e);
+                        return null;
+                    }
+                }).orElse(null);
             }
-            List<ModInfo> mcl = ModList.get().getMods();
-            for (ModInfo mci : mcl) {
-                mc = ModList.get().getModContainerById(mci.getModId());
-                mod = (mc.isPresent()) ? mc.get().getMod() : null;
-                if (mod == null) continue;
-                ClassLoader cl = mod.getClass().getClassLoader();
-                if (cl == null) cl = ClassLoader.getSystemClassLoader();
-                InputStream is = cl.getResourceAsStream(rname);
-                if (is != null) {
-                    return is;
-                }
-            }
-            return null;
         }
         /**
          * Get block unique ID map (module:blockid)
@@ -1258,7 +1284,7 @@ public class DynmapPlugin {
         public void sendMessage(String msg)
         {
             if(sender != null) {
-                ITextComponent ichatcomponent = new LiteralText(msg);
+                Text ichatcomponent = new LiteralText(msg);
                 sender.sendFeedback(ichatcomponent, false);
             }
         }
@@ -1417,7 +1443,7 @@ public class DynmapPlugin {
 
         /* Register tick handler */
         if(!tickregistered) {
-            MinecraftForge.EVENT_BUS.register(fserver);
+            ServerTickCallback.EVENT.register(server -> fserver.tickEvent(server));
             tickregistered = true;
         }
 
