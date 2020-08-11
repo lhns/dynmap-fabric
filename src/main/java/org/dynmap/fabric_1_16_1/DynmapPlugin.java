@@ -1,11 +1,8 @@
 package org.dynmap.fabric_1_16_1;
 
-import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonParseException;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
@@ -31,7 +28,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.MessageType;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.server.BannedIpList;
 import net.minecraft.server.BannedPlayerList;
 import net.minecraft.server.MinecraftServer;
@@ -50,7 +46,6 @@ import net.minecraft.util.Util;
 import net.minecraft.util.collection.IdList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldAccess;
@@ -59,8 +54,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
-import org.apache.commons.codec.Charsets;
-import org.apache.commons.codec.binary.Base64;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
@@ -83,8 +77,6 @@ import org.dynmap.utils.VisibilityLimit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -115,7 +107,7 @@ public class DynmapPlugin {
     private Map<String, FabricPlayer> players = new HashMap<String, FabricPlayer>();
     //TODO private ForgeMetrics metrics;
     private HashSet<String> modsused = new HashSet<String>();
-    private FabricServer fserver = new FabricServer();
+    private FabricServer fserver = new FabricServer(this); // FIXME: Get server in actual server itf
     private boolean tickregistered = false;
     // TPS calculator
     private double tps;
@@ -131,6 +123,18 @@ public class DynmapPlugin {
     private static final String[] TRIGGER_DEFAULTS = { "blockupdate", "chunkpopulate", "chunkgenerate" };
 
     private static final Pattern patternControlCode = Pattern.compile("(?i)\\u00A7[0-9A-FK-OR]");
+
+    int getSortWeight(String name) {
+        return sortWeights.getOrDefault(name, 0);
+    }
+
+    void setSortWeight(String name, int wt) {
+        sortWeights.put(name, wt);
+    }
+
+    void dropSortWeight(String name) {
+        sortWeights.remove(name);
+    }
 
     public static class BlockUpdateRec {
         WorldAccess w;
@@ -262,14 +266,13 @@ public class DynmapPlugin {
         return nh.connection;
     }
 
-    private FabricPlayer getOrAddPlayer(PlayerEntity p) {
-        String name = p.getName().getString();
+    private FabricPlayer getOrAddPlayer(ServerPlayerEntity player) {
+        String name = player.getName().getString();
         FabricPlayer fp = players.get(name);
         if(fp != null) {
-            fp.player = p;
-        }
-        else {
-            fp = new FabricPlayer(p);
+            fp.player = player;
+        } else {
+            fp = new FabricPlayer(this, player);
             players.put(name, fp);
         }
         return fp;
@@ -308,19 +311,25 @@ public class DynmapPlugin {
         }
     }
 
-    private class ChatMessage {
+    private static class ChatMessage {
         String message;
-        PlayerEntity sender;
+        ServerPlayerEntity sender;
     }
     private ConcurrentLinkedQueue<ChatMessage> msgqueue = new ConcurrentLinkedQueue<ChatMessage>();
 
-    public class ChatHandler {
+    public static class ChatHandler {
+        private final DynmapPlugin plugin;
+
+        ChatHandler(DynmapPlugin plugin) {
+            this.plugin = plugin;
+        }
+
         public void handleChat(ServerPlayerEntity player, String message) {
             if (!message.startsWith("/")) {
                 ChatMessage cm = new ChatMessage();
                 cm.message = message;
                 cm.sender = player;
-                msgqueue.add(cm);
+                plugin.msgqueue.add(cm);
             }
         }
     }
@@ -384,7 +393,7 @@ public class DynmapPlugin {
         return (server.isSinglePlayer() && player.equalsIgnoreCase(server.getUserName()));
     }
 
-    private boolean hasPerm(PlayerEntity psender, String permission) {
+    boolean hasPerm(PlayerEntity psender, String permission) {
         PermissionsHandler ph = PermissionsHandler.getHandler();
         if((psender != null) && ph.hasPermission(psender.getName().getString(), permission)) {
             return true;
@@ -392,7 +401,7 @@ public class DynmapPlugin {
         return permissions.has(psender, permission);
     }
 
-    private boolean hasPermNode(PlayerEntity psender, String permission) {
+    boolean hasPermNode(PlayerEntity psender, String permission) {
         PermissionsHandler ph = PermissionsHandler.getHandler();
         if((psender != null) && ph.hasPermissionNode(psender.getName().getString(), permission)) {
             return true;
@@ -430,16 +439,19 @@ public class DynmapPlugin {
     /**
      * Server access abstraction class
      */
-    public class FabricServer extends DynmapServerInterface
+    public static class FabricServer extends DynmapServerInterface
     {
         /* Server thread scheduler */
         private final Object schedlock = new Object();
+        private final DynmapPlugin plugin;
+        private MinecraftServer server;
         private long cur_tick;
         private long next_id;
         private long cur_tick_starttime;
         private PriorityQueue<TaskRecord> runqueue = new PriorityQueue<TaskRecord>();
 
-        public FabricServer() {
+        public FabricServer(DynmapPlugin plugin) {
+            this.plugin = plugin;
         }
 
         private GameProfile getProfileByName(String player) {
@@ -474,16 +486,16 @@ public class DynmapPlugin {
         @Override
         public DynmapPlayer[] getOnlinePlayers()
         {
-            if(server.getPlayerManager() == null)
-                return new DynmapPlayer[0];
-            List<ServerPlayerEntity> playlist = server.getPlayerManager().getPlayerList();
-            int pcnt = playlist.size();
-            DynmapPlayer[] dplay = new DynmapPlayer[pcnt];
+            if(server.getPlayerManager() == null) return new DynmapPlayer[0];
 
-            for (int i = 0; i < pcnt; i++)
+            List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
+            int playerCount = players.size();
+            DynmapPlayer[] dplay = new DynmapPlayer[players.size()];
+
+            for (int i = 0; i < playerCount; i++)
             {
-                PlayerEntity p = playlist.get(i);
-                dplay[i] = getOrAddPlayer(p);
+                ServerPlayerEntity player = players.get(i);
+                dplay[i] = plugin.getOrAddPlayer(player);
             }
 
             return dplay;
@@ -500,13 +512,12 @@ public class DynmapPlugin {
         {
             List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
 
-            for (Object o : players)
+            for (ServerPlayerEntity player : players)
             {
-                PlayerEntity p = (PlayerEntity)o;
 
-                if (p.getName().getString().equalsIgnoreCase(name))
+                if (player.getName().getString().equalsIgnoreCase(name))
                 {
-                    return getOrAddPlayer(p);
+                    return plugin.getOrAddPlayer(player);
                 }
             }
 
@@ -613,9 +624,9 @@ public class DynmapPlugin {
                     break;
 
                 case PLAYER_CHAT:
-                    if (chathandler == null) {
-                        chathandler = new ChatHandler();
-                        ServerChatEvents.EVENT.register((player, message) -> chathandler.handleChat(player, message));
+                    if (plugin.chathandler == null) {
+                        plugin.chathandler = new ChatHandler(plugin);
+                        ServerChatEvents.EVENT.register((player, message) -> plugin.chathandler.handleChat(player, message));
                     }
                     break;
 
@@ -690,20 +701,20 @@ public class DynmapPlugin {
         @Override
         public double getCacheHitRate()
         {
-            if(sscache != null)
-                return sscache.getHitRate();
+            if(plugin.sscache != null)
+                return plugin.sscache.getHitRate();
             return 0.0;
         }
         @Override
         public void resetCacheStats()
         {
-            if(sscache != null)
-                sscache.resetStats();
+            if(plugin.sscache != null)
+                plugin.sscache.resetStats();
         }
         @Override
         public DynmapWorld getWorldByName(String wname)
         {
-            return DynmapPlugin.this.getWorldByName(wname);
+            return plugin.getWorldByName(wname);
         }
         @Override
         public DynmapPlayer getOfflinePlayer(String name)
@@ -726,7 +737,7 @@ public class DynmapPlugin {
             if(bl.contains(getProfileByName(player))) {
                 return Collections.emptySet();
             }
-            Set<String> rslt = hasOfflinePermissions(player, perms);
+            Set<String> rslt = plugin.hasOfflinePermissions(player, perms);
             if (rslt == null) {
                 rslt = new HashSet<String>();
                 if(plugin.isOp(player)) {
@@ -745,7 +756,7 @@ public class DynmapPlugin {
             if(bl.contains(getProfileByName(player))) {
                 return false;
             }
-            return hasOfflinePermission(player, perm);
+            return plugin.hasOfflinePermission(player, perm);
         }
         /**
          * Render processor helper - used by code running on render threads to request chunk snapshot cache from server/sync thread
@@ -824,8 +835,7 @@ public class DynmapPlugin {
             return c;
         }
         @Override
-        public int getMaxPlayers()
-        {
+        public int getMaxPlayers() {
             return server.getMaxPlayerCount();
         }
         @Override
@@ -836,27 +846,27 @@ public class DynmapPlugin {
 
         public void tickEvent(MinecraftServer server)  {
             cur_tick_starttime = System.nanoTime();
-            long elapsed = cur_tick_starttime - lasttick;
-            lasttick = cur_tick_starttime;
-            avgticklen = ((avgticklen * 99) / 100) + (elapsed / 100);
-            tps = (double)1E9 / (double)avgticklen;
+            long elapsed = cur_tick_starttime - plugin.lasttick;
+            plugin.lasttick = cur_tick_starttime;
+            plugin.avgticklen = ((plugin.avgticklen * 99) / 100) + (elapsed / 100);
+            plugin.tps = (double)1E9 / (double)plugin.avgticklen;
             // Tick core
-            if (core != null) {
-                core.serverTick(tps);
+            if (plugin.core != null) {
+                plugin.core.serverTick(plugin.tps);
             }
 
             boolean done = false;
             TaskRecord tr = null;
 
-            while(!blockupdatequeue.isEmpty()) {
-                BlockUpdateRec r = blockupdatequeue.remove();
+            while(!plugin.blockupdatequeue.isEmpty()) {
+                BlockUpdateRec r = plugin.blockupdatequeue.remove();
                 BlockState bs = r.w.getBlockState(new BlockPos(r.x, r.y, r.z));
                 int idx = Block.STATE_IDS.getId(bs);
                 if(!org.dynmap.hdmap.HDBlockModels.isChangeIgnoredBlock(stateByID[idx])) {
-                    if(onblockchange_with_id)
-                        mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange[" + idx + "]");
+                    if(plugin.onblockchange_with_id)
+                        plugin.mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange[" + idx + "]");
                     else
-                        mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange");
+                        plugin.mapManager.touch(r.wid, r.x, r.y, r.z, "blockchange");
                 }
             }
 
@@ -867,7 +877,7 @@ public class DynmapPlugin {
                 now = System.nanoTime();
                 tr = runqueue.peek();
                 /* Nothing due to run */
-                if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > perTickLimit)) {
+                if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
                     done = true;
                 }
                 else {
@@ -881,7 +891,7 @@ public class DynmapPlugin {
                     tr = runqueue.peek();
                     now = System.nanoTime();
                     /* Nothing due to run */
-                    if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > perTickLimit)) {
+                    if((tr == null) || (tr.ticktorun > cur_tick) || ((now - cur_tick_starttime) > plugin.perTickLimit)) {
                         done = true;
                     }
                     else {
@@ -889,15 +899,15 @@ public class DynmapPlugin {
                     }
                 }
             }
-            while(!msgqueue.isEmpty()) {
-                ChatMessage cm = msgqueue.poll();
+            while(!plugin.msgqueue.isEmpty()) {
+                ChatMessage cm = plugin.msgqueue.poll();
                 DynmapPlayer dp = null;
                 if(cm.sender != null)
-                    dp = getOrAddPlayer(cm.sender);
+                    dp = plugin.getOrAddPlayer(cm.sender);
                 else
-                    dp = new FabricPlayer(null);
+                    dp = new FabricPlayer(plugin, null);
 
-                core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
+                plugin.core.listenerManager.processChatEvent(DynmapListenerManager.EventType.PLAYER_CHAT, dp, cm.message);
             }
             // Check for generated chunks
             if((cur_tick % 20) == 0) {
@@ -909,33 +919,15 @@ public class DynmapPlugin {
             return t -> t != null && seen.add(keyExtractor.apply(t));
         }
 
-        private Stream<ModContainer> getModContainers() {
-            FabricLoader loader = FabricLoader.getInstance();
-            return Stream.of(
-                    loader.getEntrypointContainers("main", ModInitializer.class),
-                    loader.getEntrypointContainers("server", DedicatedServerModInitializer.class),
-                    loader.getEntrypointContainers("client", ClientModInitializer.class)
-            )
-                    .flatMap(Collection::stream)
-                    .map(EntrypointContainer::getProvider)
-                    .filter(distinctByKeyAndNonNull(container -> container.getMetadata().getId()));
-        }
-
         private Optional<ModContainer> getModContainerById(String id) {
-            return getModContainers()
-                    .filter(container -> container.getMetadata().getId().equals(id))
-                    .findFirst();
+            return FabricLoader.getInstance().getModContainer(id);
         }
 
         @Override
         public boolean isModLoaded(String name) {
-            FabricLoader loader = FabricLoader.getInstance();
-             boolean loaded = getModContainerById(name).isPresent();
-            if (loaded) {
-                modsused.add(name);
-            }
-            return loaded;
+            return FabricLoader.getInstance().getModContainer(name).isPresent();
         }
+
         @Override
         public String getModVersion(String name) {
             Optional<ModContainer> mod = getModContainerById(name);    // Try case sensitive lookup
@@ -943,7 +935,7 @@ public class DynmapPlugin {
         }
         @Override
         public double getServerTPS() {
-            return tps;
+            return plugin.tps;
         }
 
         @Override
@@ -967,7 +959,11 @@ public class DynmapPlugin {
         }
         @Override
         public List<String> getModList() {
-            return getModContainers().map(container -> container.getMetadata().getId()).collect(Collectors.toList());
+            return FabricLoader.getInstance()
+                    .getAllMods()
+                    .stream()
+                    .map(container -> container.getMetadata().getId())
+                    .collect(Collectors.toList());
         }
 
         @Override
@@ -1017,7 +1013,6 @@ public class DynmapPlugin {
         }
 
     }
-    private static final Gson gson = new GsonBuilder().create();
 
     public class TexturesPayload {
         public long timestamp;
@@ -1031,241 +1026,8 @@ public class DynmapPlugin {
         public String url;
     }
 
-    /**
-     * Player access abstraction class
-     */
-    public class FabricPlayer extends FabricCommandSender implements DynmapPlayer
-    {
-        private PlayerEntity player;
-        private final String skinurl;
-        private final UUID uuid;
-
-
-        public FabricPlayer(PlayerEntity p)
-        {
-            player = p;
-            String url = null;
-            if (player != null) {
-                uuid = player.getUuid();
-                GameProfile prof = player.getGameProfile();
-                if (prof != null) {
-                    Property textureProperty = Iterables.getFirst(prof.getProperties().get("textures"), null);
-
-                    if (textureProperty != null) {
-                        TexturesPayload result = null;
-                        try {
-                            String json = new String(Base64.decodeBase64(textureProperty.getValue()), Charsets.UTF_8);
-                            result = gson.fromJson(json, TexturesPayload.class);
-                        } catch (JsonParseException e) {
-                        }
-                        if ((result != null) && (result.textures != null) && (result.textures.containsKey("SKIN"))) {
-                            url = result.textures.get("SKIN").url;
-                        }
-                    }
-                }
-            }
-            else {
-                uuid = null;
-            }
-            skinurl = url;
-        }
-        @Override
-        public boolean isConnected()
-        {
-            return true;
-        }
-        @Override
-        public String getName()
-        {
-            if(player != null) {
-                String n = player.getName().getString();;
-                return n;
-            }
-            else
-                return "[Server]";
-        }
-        @Override
-        public String getDisplayName()
-        {
-            if(player != null) {
-                String n = player.getDisplayName().getString();
-                return n;
-            }
-            else
-                return "[Server]";
-        }
-        @Override
-        public boolean isOnline()
-        {
-            return true;
-        }
-        @Override
-        public DynmapLocation getLocation()
-        {
-            if (player == null) {
-                return null;
-            }
-            Vec3d v = player.getPos();
-            return toLoc(player.world, v.x, v.y, v.z);
-        }
-        @Override
-        public String getWorld()
-        {
-            if (player == null)
-            {
-                return null;
-            }
-
-            if (player.world != null)
-            {
-                return DynmapPlugin.this.getWorld(player.world).getName();
-            }
-
-            return null;
-        }
-        @Override
-        public InetSocketAddress getAddress()
-        {
-            if((player != null) && (player instanceof ServerPlayerEntity)) {
-                ServerPlayNetworkHandler nsh = ((ServerPlayerEntity)player).networkHandler;
-                if((nsh != null) && (getNetworkManager(nsh) != null)) {
-                    SocketAddress sa = getNetworkManager(nsh).getAddress();
-                    if(sa instanceof InetSocketAddress) {
-                        return (InetSocketAddress)sa;
-                    }
-                }
-            }
-            return null;
-        }
-        @Override
-        public boolean isSneaking()
-        {
-            if (player != null)
-            {
-                return player.isSneaking();
-            }
-
-            return false;
-        }
-        @Override
-        public double getHealth()
-        {
-            if (player != null)
-            {
-                double h = player.getHealth();
-                if(h > 20) h = 20;
-                return h;  // Scale to 20 range
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        @Override
-        public int getArmorPoints()
-        {
-            if (player != null)
-            {
-                return player.getArmor();
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        @Override
-        public DynmapLocation getBedSpawnLocation()
-        {
-            return null;
-        }
-        @Override
-        public long getLastLoginTime()
-        {
-            return 0;
-        }
-        @Override
-        public long getFirstLoginTime()
-        {
-            return 0;
-        }
-        @Override
-        public boolean hasPrivilege(String privid)
-        {
-            if(player != null)
-                return hasPerm(player, privid);
-            return false;
-        }
-        @Override
-        public boolean isOp()
-        {
-            return DynmapPlugin.this.isOp(player.getName().getString());
-        }
-        @Override
-        public void sendMessage(String msg)
-        {
-            Text ichatcomponent = new LiteralText(msg);
-            server.getPlayerManager().broadcastChatMessage(ichatcomponent, MessageType.CHAT, player.getUuid());
-        }
-        @Override
-        public boolean isInvisible() {
-            if(player != null) {
-                return player.isInvisible();
-            }
-            return false;
-        }
-        @Override
-        public int getSortWeight() {
-            Integer wt = sortWeights.get(getName());
-            if (wt != null)
-                return wt;
-            return 0;
-        }
-        @Override
-        public void setSortWeight(int wt) {
-            if (wt == 0) {
-                sortWeights.remove(getName());
-            }
-            else {
-                sortWeights.put(getName(), wt);
-            }
-        }
-        @Override
-        public boolean hasPermissionNode(String node) {
-            if(player != null)
-                return hasPermNode(player, node);
-            return false;
-        }
-        @Override
-        public String getSkinURL() {
-            return skinurl;
-        }
-        @Override
-        public UUID getUUID() {
-            return uuid;
-        }
-        /**
-         * Send title and subtitle text (called from server thread)
-         */
-        @Override
-        public void sendTitleText(String title, String subtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
-            if (player instanceof ServerPlayerEntity) {
-                ServerPlayerEntity mp = (ServerPlayerEntity) player;
-                TitleS2CPacket times = new TitleS2CPacket(fadeInTicks, stayTicks, fadeOutTicks);
-                mp.networkHandler.sendPacket(times);
-                if (title != null) {
-                    TitleS2CPacket titlepkt = new TitleS2CPacket(TitleS2CPacket.Action.TITLE, new LiteralText(title));
-                    mp.networkHandler.sendPacket(titlepkt);
-                }
-
-                if (subtitle != null) {
-                    TitleS2CPacket subtitlepkt = new TitleS2CPacket(TitleS2CPacket.Action.SUBTITLE, new LiteralText(subtitle));
-                    mp.networkHandler.sendPacket(subtitlepkt);
-                }
-            }
-        }
-    }
     /* Handler for generic console command sender */
-    public class FabricCommandSender implements DynmapCommandSender
+    public static class FabricCommandSender implements DynmapCommandSender
     {
         private ServerCommandSource sender;
 
@@ -1518,7 +1280,7 @@ public class DynmapPlugin {
     void onCommand(ServerCommandSource sender, String cmd, String[] args)
     {
         DynmapCommandSender dsender;
-        PlayerEntity psender;
+        ServerPlayerEntity psender;
         try {
             psender = sender.getPlayer();
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException x) {
@@ -1527,7 +1289,7 @@ public class DynmapPlugin {
 
         if (psender != null)
         {
-            dsender = new FabricPlayer(psender);
+            dsender = new FabricPlayer(this, psender);
         }
         else
         {
@@ -1537,7 +1299,7 @@ public class DynmapPlugin {
         core.processCommand(dsender, cmd, cmd, args);
     }
 
-    private DynmapLocation toLoc(World worldObj, double x, double y, double z)
+    DynmapLocation toLoc(World worldObj, double x, double y, double z)
     {
         return new DynmapLocation(DynmapPlugin.this.getWorld(worldObj).getName(), x, y, z);
     }
@@ -1759,7 +1521,7 @@ public class DynmapPlugin {
         return worlds.get(name);
     }
 
-    private FabricWorld getWorld(WorldAccess w) {
+    FabricWorld getWorld(WorldAccess w) {
         return getWorld(w, true);
     }
 
