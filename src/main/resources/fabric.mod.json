@@ -6,16 +6,16 @@
   "name": "Dynmap",
   "description": "Dynamic, Google-maps style rendered maps for your Minecraft server",
   "authors": [
-    "mikeprimm"
+    "mikeprimm",
+    "LolHens",
+    "i509VCB"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "homepage": "https://github.com/LolHens/dynmap-fabric",
+    "sources": "https://github.com/LolHens/dynmap-fabric"
   },
-
-  "license": "CC0-1.0",
-  "icon": "assets/modid/icon.png",
-
+  "license": "Apache-2.0",
+  "icon": "assets/dynmap/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
