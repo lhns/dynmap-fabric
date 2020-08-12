@@ -3,6 +3,7 @@ package org.dynmap.fabric_1_16_1;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.util.collection.PackedIntegerArray;
+import org.dynmap.Log;
 import org.dynmap.renderer.DynmapBlockState;
 
 import java.util.Arrays;
@@ -182,7 +183,16 @@ public class ChunkSnapshot {
                         palette[pi] = DynmapBlockState.AIR;
                     }
                 }
+
                 int bitsperblock = (statelist.length * 64) / 4096;
+                int expectedStatelistLength = (4096 + (64 / bitsperblock) - 1) / (64 / bitsperblock);
+                if (expectedStatelistLength > statelist.length) {
+                    Log.warning("Got statelist of length " + statelist.length + " but expected a length of " + expectedStatelistLength);
+                    long[] expandedStatelist = new long[expectedStatelistLength];
+                    System.arraycopy(statelist, 0, expandedStatelist, 0, statelist.length);
+                    statelist = expandedStatelist;
+                }
+
                 PackedIntegerArray db = new PackedIntegerArray(bitsperblock, 4096, statelist);
                 if (bitsperblock > 8) {    // Not palette
                     for (int j = 0; j < 4096; j++) {
