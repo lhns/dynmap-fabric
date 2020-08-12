@@ -15,12 +15,12 @@ public abstract class ServerPlayNetworkHandlerMixin {
     @Shadow
     public ServerPlayerEntity player;
 
-    @Inject(method = "onGameMessage", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onGameMessage", at = @At("HEAD"))
     public void onGameMessageBegin(ChatMessageC2SPacket packet, CallbackInfo info) {
         OnGameMessageContext.begin(this.player);
     }
 
-    @Inject(method = "onGameMessage", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "onGameMessage", at = @At("RETURN"))
     public void onGameMessageEnd(ChatMessageC2SPacket packet, CallbackInfo info) {
         OnGameMessageContext.end();
     }

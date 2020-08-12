@@ -17,7 +17,7 @@ public abstract class ThreadedAnvilChunkStorageMixin {
     @Final
     private ServerWorld world;
 
-    @Inject(method = "save(Lnet/minecraft/world/chunk/Chunk;)Z", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "save(Lnet/minecraft/world/chunk/Chunk;)Z", at = @At("RETURN"))
     private void save(Chunk chunk, CallbackInfoReturnable<Boolean> info) {
         if (info.getReturnValueZ()) {
             ChunkDataEvents.SAVE.invoker().onSave(this.world, chunk);

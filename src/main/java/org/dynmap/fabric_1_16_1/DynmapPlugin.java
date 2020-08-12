@@ -36,12 +36,18 @@ import net.minecraft.world.chunk.WorldChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
-import org.dynmap.common.*;
+import org.dynmap.common.BiomeMap;
+import org.dynmap.common.DynmapCommandSender;
+import org.dynmap.common.DynmapListenerManager;
+import org.dynmap.common.DynmapPlayer;
 import org.dynmap.fabric_1_16_1.command.DmapCommand;
 import org.dynmap.fabric_1_16_1.command.DmarkerCommand;
 import org.dynmap.fabric_1_16_1.command.DynmapCommand;
 import org.dynmap.fabric_1_16_1.command.DynmapExpCommand;
-import org.dynmap.fabric_1_16_1.event.*;
+import org.dynmap.fabric_1_16_1.event.BlockEvents;
+import org.dynmap.fabric_1_16_1.event.ChunkDataEvents;
+import org.dynmap.fabric_1_16_1.event.CustomServerLifecycleEvents;
+import org.dynmap.fabric_1_16_1.event.PlayerEvents;
 import org.dynmap.fabric_1_16_1.mixin.BiomeEffectsAccessor;
 import org.dynmap.fabric_1_16_1.mixin.ThreadedAnvilChunkStorageAccessor;
 import org.dynmap.fabric_1_16_1.permissions.FilePermissions;
@@ -53,7 +59,7 @@ import org.dynmap.utils.DynmapLogger;
 
 import java.io.File;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Pattern;
 
 public class DynmapPlugin {
@@ -640,9 +646,9 @@ public class DynmapPlugin {
     }
 
     public class PlayerTracker {
-        public void onPlayerLogin(PlayerEvents.PlayerLoggedInEvent event) {
+        public void onPlayerLogin(ServerPlayerEntity player) {
             if (!core_enabled) return;
-            final DynmapPlayer dp = getOrAddPlayer(event.getPlayer());
+            final DynmapPlayer dp = getOrAddPlayer(player);
             /* This event can be called from off server thread, so push processing there */
             core.getServer().scheduleServerTask(new Runnable() {
                 public void run() {
@@ -651,10 +657,10 @@ public class DynmapPlugin {
             }, 2);
         }
 
-        public void onPlayerLogout(PlayerEvents.PlayerLoggedOutEvent event) {
+        public void onPlayerLogout(ServerPlayerEntity player) {
             if (!core_enabled) return;
-            final DynmapPlayer dp = getOrAddPlayer(event.getPlayer());
-            final String name = event.getPlayer().getName().getString();
+            final DynmapPlayer dp = getOrAddPlayer(player);
+            final String name = player.getName().getString();
             /* This event can be called from off server thread, so push processing there */
             core.getServer().scheduleServerTask(new Runnable() {
                 public void run() {
@@ -664,14 +670,14 @@ public class DynmapPlugin {
             }, 0);
         }
 
-        public void onPlayerChangedDimension(PlayerEvents.PlayerChangedDimensionEvent event) {
+        public void onPlayerChangedDimension(ServerPlayerEntity player) {
             if (!core_enabled) return;
-            getOrAddPlayer(event.getPlayer());    // Freshen player object reference
+            getOrAddPlayer(player);    // Freshen player object reference
         }
 
-        public void onPlayerRespawn(PlayerEvents.PlayerRespawnEvent event) {
+        public void onPlayerRespawn(ServerPlayerEntity player) {
             if (!core_enabled) return;
-            getOrAddPlayer(event.getPlayer());    // Freshen player object reference
+            getOrAddPlayer(player);    // Freshen player object reference
         }
     }
 
@@ -680,10 +686,10 @@ public class DynmapPlugin {
     private void registerPlayerLoginListener() {
         if (playerTracker == null) {
             playerTracker = new PlayerTracker();
-            PlayerEvents.PLAYER_LOGGED_IN.register(event -> playerTracker.onPlayerLogin(event));
-            PlayerEvents.PLAYER_LOGGED_OUT.register(event -> playerTracker.onPlayerLogout(event));
-            PlayerEvents.PLAYER_CHANGED_DIMENSION.register(event -> playerTracker.onPlayerChangedDimension(event));
-            PlayerEvents.PLAYER_RESPAWN.register(event -> playerTracker.onPlayerRespawn(event));
+            PlayerEvents.PLAYER_LOGGED_IN.register(player -> playerTracker.onPlayerLogin(player));
+            PlayerEvents.PLAYER_LOGGED_OUT.register(player -> playerTracker.onPlayerLogout(player));
+            PlayerEvents.PLAYER_CHANGED_DIMENSION.register(player -> playerTracker.onPlayerChangedDimension(player));
+            PlayerEvents.PLAYER_RESPAWN.register(player -> playerTracker.onPlayerRespawn(player));
         }
     }
 

@@ -16,7 +16,7 @@ public abstract class WorldChunkMixin {
     @Shadow
     public abstract World getWorld();
 
-    @Inject(method = "setBlockState", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "setBlockState", at = @At("RETURN"))
     public void setBlockState(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> info) {
         if (info.getReturnValue() != null) {
             BlockEvents.EVENT.invoker().onBlockEvent(this.getWorld(), pos);
