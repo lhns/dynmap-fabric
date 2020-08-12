@@ -862,7 +862,7 @@ public class FabricMapChunkCache extends MapChunkCache {
                 rslt = rslt.getCompound("Level");
                 // Don't load uncooked chunks
                 String stat = rslt.getString("Status");
-                ChunkStatus cs = ChunkStatus.get(stat);
+                ChunkStatus cs = ChunkStatus.byId(stat);
                 if ((stat == null) ||
                         // Needs to be at least lighted
                         (!cs.isAtLeast(ChunkStatus.LIGHT))) {

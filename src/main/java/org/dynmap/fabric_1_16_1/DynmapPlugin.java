@@ -175,7 +175,7 @@ public class DynmapPlugin {
         Iterator<BlockState> iter = bsids.iterator();
         while (iter.hasNext()) {
             BlockState bs = iter.next();
-            int idx = bsids.getId(bs);
+            int idx = bsids.getRawId(bs);
             if (idx >= stateByID.length) {
                 int plen = stateByID.length;
                 stateByID = Arrays.copyOf(stateByID, idx + 1);
@@ -442,7 +442,7 @@ public class DynmapPlugin {
             Biome bb = list[i];
             if (bb != null) {
                 String id = Registry.BIOME.getId(bb).getPath();
-                float tmp = bb.getTemperature(), hum = bb.getRainfall();
+                float tmp = bb.getTemperature(), hum = bb.getDownfall();
                 int watermult = ((BiomeEffectsAccessor) bb.getEffects()).getWaterColor();
                 Log.verboseinfo("biome[" + i + "]: hum=" + hum + ", tmp=" + tmp + ", mult=" + Integer.toHexString(watermult));
 
@@ -800,7 +800,7 @@ public class DynmapPlugin {
 
             BlockUpdateRec r = new BlockUpdateRec();
             r.w = world;
-            FabricWorld fw = getWorld(r.w, false);
+            FabricWorld fw = getWorld(world, false);
             if (fw == null) return;
             r.wid = fw.getName();
             r.x = pos.getX();
@@ -863,11 +863,11 @@ public class DynmapPlugin {
         return worlds.get(name);
     }
 
-    FabricWorld getWorld(WorldAccess w) {
+    FabricWorld getWorld(World w) {
         return getWorld(w, true);
     }
 
-    private FabricWorld getWorld(WorldAccess w, boolean add_if_not_found) {
+    private FabricWorld getWorld(World w, boolean add_if_not_found) {
         if (last_world == w) {
             return last_fworld;
         }

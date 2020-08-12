@@ -18,7 +18,7 @@ import java.util.List;
 public class FabricWorld extends DynmapWorld {
     // TODO: Store this relative to World saves for integrated server
     public static final String SAVED_WORLDS_FILE = "fabricworlds.yml";
-    private WorldAccess world;
+    private World world;
     private final boolean skylight;
     private final boolean isnether;
     private final boolean istheend;
@@ -34,10 +34,10 @@ public class FabricWorld extends DynmapWorld {
         maxWorldHeight = h;
     }
 
-    public static String getWorldName(WorldAccess w) {
-        RegistryKey<World> rk = w.getWorld().getRegistryKey();
+    public static String getWorldName(World w) {
+        RegistryKey<World> rk = w.getRegistryKey();
         if (rk == World.OVERWORLD) {    // Overworld?
-            return w.getWorld().getServer().getSaveProperties().getLevelName();
+            return w.getServer().getSaveProperties().getLevelName();
         } else if (rk == World.END) {
             return "DIM1";
         } else if (rk == World.NETHER) {
@@ -47,12 +47,12 @@ public class FabricWorld extends DynmapWorld {
         }
     }
 
-    public FabricWorld(WorldAccess w) {
-        this(getWorldName(w), w.getWorld().getHeight(),
-                w.getWorld().getSeaLevel(),
-                w.getWorld().getRegistryKey() == World.END,
-                w.getWorld().getRegistryKey() == World.NETHER,
-                w.getWorld().getRegistryKey().getValue().getPath());
+    public FabricWorld(World w) {
+        this(getWorldName(w), w.getHeight(),
+                w.getSeaLevel(),
+                w.getRegistryKey() == World.END,
+                w.getRegistryKey() == World.NETHER,
+                w.getRegistryKey().getValue().getPath());
         setWorldLoaded(w);
     }
 
@@ -100,7 +100,7 @@ public class FabricWorld extends DynmapWorld {
     @Override
     public long getTime() {
         if (world != null)
-            return world.getWorld().getTime();
+            return world.getTime();
         else
             return -1;
     }
@@ -109,7 +109,7 @@ public class FabricWorld extends DynmapWorld {
     @Override
     public boolean hasStorm() {
         if (world != null)
-            return world.getWorld().isRaining();
+            return world.isRaining();
         else
             return false;
     }
@@ -118,7 +118,7 @@ public class FabricWorld extends DynmapWorld {
     @Override
     public boolean isThundering() {
         if (world != null)
-            return world.getWorld().isThundering();
+            return world.isThundering();
         else
             return false;
     }
@@ -137,12 +137,12 @@ public class FabricWorld extends DynmapWorld {
     }
 
     /* Set world to loaded */
-    public void setWorldLoaded(WorldAccess w) {
+    public void setWorldLoaded(World w) {
         world = w;
         this.sealevel = w.getSeaLevel();   // Read actual current sealevel from world
         // Update lighting table
         for (int i = 0; i < 16; i++) {
-            this.setBrightnessTableEntry(i, w.getWorld().getDimension().method_28516(i));
+            this.setBrightnessTableEntry(i, w.getDimension().method_28516(i));
         }
     }
 
@@ -159,7 +159,7 @@ public class FabricWorld extends DynmapWorld {
     @Override
     public int getHighestBlockYAt(int x, int z) {
         if (world != null) {
-            return world.getWorld().getChunk(x >> 4, z >> 4).getHeightmap(Heightmap.Type.MOTION_BLOCKING).get(x & 15, z & 15);
+            return world.getChunk(x >> 4, z >> 4).getHeightmap(Heightmap.Type.MOTION_BLOCKING).get(x & 15, z & 15);
         } else
             return -1;
     }
@@ -201,7 +201,7 @@ public class FabricWorld extends DynmapWorld {
     }
 
     public World getWorld() {
-        return world.getWorld();
+        return world;
     }
 
     @Override
