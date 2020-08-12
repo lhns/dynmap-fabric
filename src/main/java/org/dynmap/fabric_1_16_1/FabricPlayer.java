@@ -25,7 +25,7 @@ import java.util.UUID;
 /**
  * Player access abstraction class
  */
-public class FabricPlayer extends DynmapPlugin.FabricCommandSender implements DynmapPlayer {
+public class FabricPlayer extends FabricCommandSender implements DynmapPlayer {
     private static final Gson GSON = new GsonBuilder().create();
     private final DynmapPlugin plugin;
     // FIXME: Proper setter
