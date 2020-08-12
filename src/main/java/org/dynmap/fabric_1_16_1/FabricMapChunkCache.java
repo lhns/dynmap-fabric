@@ -5,6 +5,7 @@ import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.world.ChunkSerializer;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
@@ -27,6 +28,8 @@ import java.util.*;
  * Container for managing chunks - dependent upon using chunk snapshots, since rendering is off server thread
  */
 public class FabricMapChunkCache extends MapChunkCache {
+    private final DynmapPlugin plugin;
+
     private static boolean init = false;
     private static Field updateEntityTick = null;
     /* ChunkManager fields */
@@ -61,10 +64,42 @@ public class FabricMapChunkCache extends MapChunkCache {
             BlockStep.X_PLUS, BlockStep.Y_PLUS, BlockStep.Z_PLUS
     };
 
-    private static BiomeMap[] biome_to_bmap;
+    private BiomeMap[] biome_to_bmap;
 
     private static final int getIndexInChunk(int cx, int cy, int cz) {
         return (cy << 8) | (cz << 4) | cx;
+    }
+
+    /**
+     * Construct empty cache
+     */
+    public FabricMapChunkCache(DynmapPlugin plugin) {
+        this.plugin = plugin;
+
+        Biome b[] = plugin.getBiomeList();
+        BiomeMap[] bm = BiomeMap.values();
+        biome_to_bmap = new BiomeMap[256];
+
+        for (int i = 0; i < biome_to_bmap.length; i++) {
+            biome_to_bmap[i] = BiomeMap.NULL;
+        }
+
+        Registry<Biome> biomeRegistry = plugin.getBiomeRegistry();
+
+        for (int i = 0; i < b.length; i++) {
+            if (b[i] == null) continue;
+
+            String bs = biomeRegistry.getId(b[i]).toString(); //TODO: 1.16.1 was: b[i].getTranslationKey();
+
+            for (int j = 0; j < bm.length; j++) {
+                if (bm[j].toString().equals(bs)) {
+                    biome_to_bmap[i] = bm[j];
+                    break;
+                }
+            }
+        }
+
+        init();
     }
 
     /**
@@ -786,13 +821,6 @@ public class FabricMapChunkCache extends MapChunkCache {
         }
     }
 
-    /**
-     * Construct empty cache
-     */
-    public FabricMapChunkCache() {
-        init();
-    }
-
     public void setChunks(FabricWorld dw, List<DynmapChunk> chunks) {
         this.dw = dw;
         this.w = dw.getWorld();
@@ -1070,7 +1098,7 @@ public class FabricMapChunkCache extends MapChunkCache {
                 ChunkSnapshot ss;
                 DynIntHashMap tileData;
                 if (vis) {  // If visible 
-                    CompoundTag nbt = ChunkSerializer.serialize((ServerWorld) w, cps.getWorldChunk(chunk.x, chunk.z, false));
+                    CompoundTag nbt = ChunkSerializer.serialize((ServerWorld) w, cps.getWorldChunk(chunk.x, chunk.z, false) /*TODO: NPE*/);
                     if (nbt != null) nbt = nbt.getCompound("Level");
                     SnapshotCache.SnapshotRec ssr = prepChunkSnapshot(chunk, nbt);
                     ss = ssr.ss;
@@ -1287,28 +1315,5 @@ public class FabricMapChunkCache extends MapChunkCache {
     @Override
     public DynmapWorld getWorld() {
         return dw;
-    }
-
-    static {
-        Biome b[] = DynmapPlugin.getBiomeList();
-        BiomeMap[] bm = BiomeMap.values();
-        biome_to_bmap = new BiomeMap[256];
-
-        for (int i = 0; i < biome_to_bmap.length; i++) {
-            biome_to_bmap[i] = BiomeMap.NULL;
-        }
-
-        for (int i = 0; i < b.length; i++) {
-            if (b[i] == null) continue;
-
-            String bs = b[i].getTranslationKey();
-
-            for (int j = 0; j < bm.length; j++) {
-                if (bm[j].toString().equals(bs)) {
-                    biome_to_bmap[i] = bm[j];
-                    break;
-                }
-            }
-        }
     }
 }

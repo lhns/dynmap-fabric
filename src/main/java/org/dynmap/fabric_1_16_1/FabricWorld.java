@@ -18,6 +18,8 @@ import java.util.List;
 public class FabricWorld extends DynmapWorld {
     // TODO: Store this relative to World saves for integrated server
     public static final String SAVED_WORLDS_FILE = "fabricworlds.yml";
+
+    private final DynmapPlugin plugin;
     private World world;
     private final boolean skylight;
     private final boolean isnether;
@@ -34,7 +36,7 @@ public class FabricWorld extends DynmapWorld {
         maxWorldHeight = h;
     }
 
-    public static String getWorldName(World w) {
+    public static String getWorldName(DynmapPlugin plugin, World w) {
         RegistryKey<World> rk = w.getRegistryKey();
         if (rk == World.OVERWORLD) {    // Overworld?
             return w.getServer().getSaveProperties().getLevelName();
@@ -47,8 +49,8 @@ public class FabricWorld extends DynmapWorld {
         }
     }
 
-    public FabricWorld(World w) {
-        this(getWorldName(w), w.getHeight(),
+    public FabricWorld(DynmapPlugin plugin, World w) {
+        this(plugin, getWorldName(plugin, w), w.getHeight(),
                 w.getSeaLevel(),
                 w.getRegistryKey() == World.END,
                 w.getRegistryKey() == World.NETHER,
@@ -56,8 +58,9 @@ public class FabricWorld extends DynmapWorld {
         setWorldLoaded(w);
     }
 
-    public FabricWorld(String name, int height, int sealevel, boolean nether, boolean the_end, String deftitle) {
+    public FabricWorld(DynmapPlugin plugin, String name, int height, int sealevel, boolean nether, boolean the_end, String deftitle) {
         super(name, (height > maxWorldHeight) ? maxWorldHeight : height, sealevel);
+        this.plugin = plugin;
         world = null;
         setTitle(deftitle);
         isnether = nether;
@@ -193,7 +196,7 @@ public class FabricWorld extends DynmapWorld {
     @Override
     public MapChunkCache getChunkCache(List<DynmapChunk> chunks) {
         if (world != null) {
-            FabricMapChunkCache c = new FabricMapChunkCache();
+            FabricMapChunkCache c = new FabricMapChunkCache(plugin);
             c.setChunks(this, chunks);
             return c;
         }
