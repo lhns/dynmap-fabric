@@ -33,8 +33,6 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.dynmap.*;
 import org.dynmap.common.BiomeMap;
 import org.dynmap.common.DynmapCommandSender;
@@ -55,7 +53,6 @@ import org.dynmap.fabric_1_16_1.permissions.OpPermissions;
 import org.dynmap.fabric_1_16_1.permissions.PermissionProvider;
 import org.dynmap.permissions.PermissionsHandler;
 import org.dynmap.renderer.DynmapBlockState;
-import org.dynmap.utils.DynmapLogger;
 
 import java.io.File;
 import java.util.*;
@@ -293,50 +290,6 @@ public class DynmapPlugin {
                 cm.sender = player;
                 plugin.msgqueue.add(cm);
             }
-        }
-    }
-
-    public static class OurLog implements DynmapLogger {
-        Logger log;
-        public static final String DM = "[Dynmap] ";
-
-        OurLog() {
-            log = LogManager.getLogger("Dynmap");
-        }
-
-        @Override
-        public void info(String s) {
-            log.info(DM + s);
-        }
-
-        @Override
-        public void severe(Throwable t) {
-            log.fatal(t);
-        }
-
-        @Override
-        public void severe(String s) {
-            log.fatal(DM + s);
-        }
-
-        @Override
-        public void severe(String s, Throwable t) {
-            log.fatal(DM + s, t);
-        }
-
-        @Override
-        public void verboseinfo(String s) {
-            log.info(DM + s);
-        }
-
-        @Override
-        public void warning(String s) {
-            log.warn(DM + s);
-        }
-
-        @Override
-        public void warning(String s, Throwable t) {
-            log.warn(DM + s, t);
         }
     }
 
