@@ -21,6 +21,7 @@ repositories {
     flatDir {
         dirs 'lib'
     }
+    maven { url "https://repo.mikeprimm.com" }
 }
 
 configurations {
@@ -37,8 +38,9 @@ dependencies {
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    shadow name: "dynmap-api-3.0-unshaded"
-    shadow name: "DynmapCoreAPI-3.0-all"
+    compileOnly group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+
+    shadow "us.dynmap:DynmapCoreAPI:3.1-beta-1"
     shadow name: "DynmapCore-3.0-unshaded"
 
     shadow 'javax.servlet:javax.servlet-api:3.1'
@@ -47,8 +49,6 @@ dependencies {
     shadow 'com.googlecode.json-simple:json-simple:1.1.1'
     shadow 'org.yaml:snakeyaml:1.23'
     shadow 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20180219.1'
-
-    compileOnly group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
 
     // PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
     // You may need to force-disable transitiveness on them.
