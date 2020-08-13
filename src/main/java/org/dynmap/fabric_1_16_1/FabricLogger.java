@@ -14,6 +14,11 @@ public class FabricLogger implements DynmapLogger {
 
     @Override
     public void info(String s) {
+        if (s.equals("For support, visit https://reddit.com/r/Dynmap")) return;
+        if (s.equals("To report or track bugs, visit https://github.com/webbukkit/dynmap/issues")) {
+            log.info(DM + "To report or track bugs, visit https://github.com/LolHens/dynmap-fabric/issues");
+            return;
+        }
         log.info(DM + s);
     }
 
