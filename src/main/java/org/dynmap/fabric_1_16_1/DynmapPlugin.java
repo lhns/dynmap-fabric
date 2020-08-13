@@ -237,15 +237,16 @@ public class DynmapPlugin {
         return Item.byRawId(id);
     }
 
-    private static Biome[] biomelist = null;
+    private Biome[] biomelist = null;
 
-    public static final Biome[] getBiomeList() {
+    public final Biome[] getBiomeList() {
         if (biomelist == null) {
             biomelist = new Biome[256];
-            Iterator<Biome> iter = Registry.BIOME.iterator();
+            Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
+            Iterator<Biome> iter = biomeRegistry.iterator();
             while (iter.hasNext()) {
                 Biome b = iter.next();
-                int bidx = Registry.BIOME.getRawId(b);
+                int bidx = biomeRegistry.getRawId(b);
                 if (bidx >= biomelist.length) {
                     biomelist = Arrays.copyOf(biomelist, bidx + biomelist.length);
                 }
@@ -337,6 +338,10 @@ public class DynmapPlugin {
         public void warning(String s, Throwable t) {
             log.warn(DM + s, t);
         }
+    }
+
+    public FabricServer getFabricServer() {
+        return fserver;
     }
 
     private void serverStart(MinecraftServer server) {
@@ -437,11 +442,12 @@ public class DynmapPlugin {
         BiomeMap.loadWellKnownByVersion(mcver);
 
         Biome[] list = getBiomeList();
+        Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
 
         for (int i = 0; i < list.length; i++) {
             Biome bb = list[i];
             if (bb != null) {
-                String id = Registry.BIOME.getId(bb).getPath();
+                String id = biomeRegistry.getId(bb).getPath();
                 float tmp = bb.getTemperature(), hum = bb.getDownfall();
                 int watermult = ((BiomeEffectsAccessor) bb.getEffects()).getWaterColor();
                 Log.verboseinfo("biome[" + i + "]: hum=" + hum + ", tmp=" + tmp + ", mult=" + Integer.toHexString(watermult));
@@ -466,12 +472,13 @@ public class DynmapPlugin {
     }
 
     private String[] getBiomeNames() {
+        Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
         Biome[] list = getBiomeList();
         String[] lst = new String[list.length];
         for (int i = 0; i < list.length; i++) {
             Biome bb = list[i];
             if (bb != null) {
-                lst[i] = Registry.BIOME.getId(bb).getPath();
+                lst[i] = biomeRegistry.getId(bb).getPath();
             }
         }
         return lst;
@@ -871,7 +878,7 @@ public class DynmapPlugin {
         if (last_world == w) {
             return last_fworld;
         }
-        String wname = FabricWorld.getWorldName(w);
+        String wname = FabricWorld.getWorldName(this, w);
 
         for (FabricWorld fw : worlds.values()) {
             if (fw.getRawName().equals(wname)) {
@@ -886,7 +893,7 @@ public class DynmapPlugin {
         FabricWorld fw = null;
         if (add_if_not_found) {
             /* Add to list if not found */
-            fw = new FabricWorld(w);
+            fw = new FabricWorld(this, w);
             worlds.put(fw.getName(), fw);
         }
         last_world = w;
@@ -945,7 +952,7 @@ public class DynmapPlugin {
                 boolean theend = (Boolean) world.get("the_end");
                 String title = (String) world.get("title");
                 if (name != null) {
-                    FabricWorld fw = new FabricWorld(name, height, sealevel, nether, theend, title);
+                    FabricWorld fw = new FabricWorld(this, name, height, sealevel, nether, theend, title);
                     fw.setWorldUnloaded();
                     core.processWorldLoad(fw);
                     worlds.put(fw.getName(), fw);

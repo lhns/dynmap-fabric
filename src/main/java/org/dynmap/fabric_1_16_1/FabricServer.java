@@ -17,6 +17,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.UserCache;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.Registry;
+import net.minecraft.world.biome.Biome;
 import org.dynmap.DynmapChunk;
 import org.dynmap.DynmapCommonAPIListener;
 import org.dynmap.DynmapWorld;
@@ -49,6 +51,7 @@ public class FabricServer extends DynmapServerInterface {
     private final Object schedlock = new Object();
     private final DynmapPlugin plugin;
     private final MinecraftServer server;
+    private final Registry<Biome> biomeRegistry;
     private long cur_tick;
     private long next_id;
     private long cur_tick_starttime;
@@ -57,11 +60,16 @@ public class FabricServer extends DynmapServerInterface {
     public FabricServer(DynmapPlugin plugin, MinecraftServer server) {
         this.plugin = plugin;
         this.server = server;
+        this.biomeRegistry = server.getRegistryManager().get(Registry.BIOME_KEY);
     }
 
     private GameProfile getProfileByName(String player) {
         UserCache cache = server.getUserCache();
         return cache.findByName(player);
+    }
+
+    public final Registry<Biome> getBiomeRegistry() {
+        return biomeRegistry;
     }
 
     @Override
