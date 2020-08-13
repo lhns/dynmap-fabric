@@ -72,6 +72,24 @@ public class FabricServer extends DynmapServerInterface {
         return biomeRegistry;
     }
 
+    private Biome[] biomelist = null;
+
+    public final Biome[] getBiomeList(Registry<Biome> biomeRegistry) {
+        if (biomelist == null) {
+            biomelist = new Biome[256];
+            Iterator<Biome> iter = biomeRegistry.iterator();
+            while (iter.hasNext()) {
+                Biome b = iter.next();
+                int bidx = biomeRegistry.getRawId(b);
+                if (bidx >= biomelist.length) {
+                    biomelist = Arrays.copyOf(biomelist, bidx + biomelist.length);
+                }
+                biomelist[bidx] = b;
+            }
+        }
+        return biomelist;
+    }
+
     @Override
     public int getBlockIDAt(String wname, int x, int y, int z) {
         return -1;

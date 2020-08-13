@@ -76,15 +76,14 @@ public class FabricMapChunkCache extends MapChunkCache {
     public FabricMapChunkCache(DynmapPlugin plugin) {
         this.plugin = plugin;
 
-        Biome b[] = plugin.getBiomeList();
+        Registry<Biome> biomeRegistry = plugin.getFabricServer().getBiomeRegistry();
+        Biome b[] = plugin.getFabricServer().getBiomeList(biomeRegistry);
         BiomeMap[] bm = BiomeMap.values();
         biome_to_bmap = new BiomeMap[256];
 
         for (int i = 0; i < biome_to_bmap.length; i++) {
             biome_to_bmap[i] = BiomeMap.NULL;
         }
-
-        Registry<Biome> biomeRegistry = plugin.getFabricServer().getBiomeRegistry();
 
         for (int i = 0; i < b.length; i++) {
             if (b[i] == null) continue;

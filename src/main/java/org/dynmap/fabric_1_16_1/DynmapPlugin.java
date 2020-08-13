@@ -234,25 +234,6 @@ public class DynmapPlugin {
         return Item.byRawId(id);
     }
 
-    private Biome[] biomelist = null;
-
-    public final Biome[] getBiomeList() {
-        if (biomelist == null) {
-            biomelist = new Biome[256];
-            Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
-            Iterator<Biome> iter = biomeRegistry.iterator();
-            while (iter.hasNext()) {
-                Biome b = iter.next();
-                int bidx = biomeRegistry.getRawId(b);
-                if (bidx >= biomelist.length) {
-                    biomelist = Arrays.copyOf(biomelist, bidx + biomelist.length);
-                }
-                biomelist[bidx] = b;
-            }
-        }
-        return biomelist;
-    }
-
     public static final ClientConnection getNetworkManager(ServerPlayNetworkHandler nh) {
         return nh.connection;
     }
@@ -394,8 +375,8 @@ public class DynmapPlugin {
         int cnt = 0;
         BiomeMap.loadWellKnownByVersion(mcver);
 
-        Biome[] list = getBiomeList();
         Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
+        Biome[] list = getFabricServer().getBiomeList(biomeRegistry);
 
         for (int i = 0; i < list.length; i++) {
             Biome bb = list[i];
@@ -426,7 +407,7 @@ public class DynmapPlugin {
 
     private String[] getBiomeNames() {
         Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
-        Biome[] list = getBiomeList();
+        Biome[] list = getFabricServer().getBiomeList(biomeRegistry);
         String[] lst = new String[list.length];
         for (int i = 0; i < list.length; i++) {
             Biome bb = list[i];
