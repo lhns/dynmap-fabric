@@ -851,7 +851,7 @@ public class DynmapPlugin {
                     ChunkHolder ch = k.getValue();
                     Chunk c = null;
                     try {
-                        c = ch.getSavingFuture().getNow(null); //TODO: 1.16.1 was: ch.getSavingFuture().getNow(null);
+                        c = ch.getSavingFuture().getNow(null);
                     } catch (Exception x) {
                     }
                     if (c == null) continue;
