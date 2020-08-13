@@ -18,8 +18,8 @@ public class ServerPlayerEntityMixin {
         PlayerEvents.PLAYER_CHANGED_DIMENSION.invoker().onPlayerChangedDimension(player);
     }
 
-    @Inject(method = "changeDimension", at = @At("TAIL"))
-    public void changeDimension(ServerWorld destination, CallbackInfoReturnable<Entity> info) {
+    @Inject(method = "moveToWorld", at = @At("TAIL"))
+    public void moveToWorld(ServerWorld destination, CallbackInfoReturnable<Entity> info) {
         ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
         PlayerEvents.PLAYER_CHANGED_DIMENSION.invoker().onPlayerChangedDimension(player);
     }
