@@ -237,16 +237,12 @@ public class DynmapPlugin {
         return Item.byRawId(id);
     }
 
-    private static Biome[] biomelist = null;
-
-    public final Registry<Biome> getBiomeRegistry() {
-        return server.getRegistryManager().get(Registry.BIOME_KEY);
-    }
+    private Biome[] biomelist = null;
 
     public final Biome[] getBiomeList() {
         if (biomelist == null) {
             biomelist = new Biome[256];
-            Registry<Biome> biomeRegistry = getBiomeRegistry();
+            Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
             Iterator<Biome> iter = biomeRegistry.iterator();
             while (iter.hasNext()) {
                 Biome b = iter.next();
@@ -342,6 +338,10 @@ public class DynmapPlugin {
         public void warning(String s, Throwable t) {
             log.warn(DM + s, t);
         }
+    }
+
+    public FabricServer getFabricServer() {
+        return fserver;
     }
 
     private void serverStart(MinecraftServer server) {
@@ -442,7 +442,7 @@ public class DynmapPlugin {
         BiomeMap.loadWellKnownByVersion(mcver);
 
         Biome[] list = getBiomeList();
-        Registry<Biome> biomeRegistry = getBiomeRegistry();
+        Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
 
         for (int i = 0; i < list.length; i++) {
             Biome bb = list[i];
@@ -472,7 +472,7 @@ public class DynmapPlugin {
     }
 
     private String[] getBiomeNames() {
-        Registry<Biome> biomeRegistry = getBiomeRegistry();
+        Registry<Biome> biomeRegistry = getFabricServer().getBiomeRegistry();
         Biome[] list = getBiomeList();
         String[] lst = new String[list.length];
         for (int i = 0; i < list.length; i++) {

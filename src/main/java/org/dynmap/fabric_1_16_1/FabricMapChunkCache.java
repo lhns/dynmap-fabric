@@ -84,7 +84,7 @@ public class FabricMapChunkCache extends MapChunkCache {
             biome_to_bmap[i] = BiomeMap.NULL;
         }
 
-        Registry<Biome> biomeRegistry = plugin.getBiomeRegistry();
+        Registry<Biome> biomeRegistry = plugin.getFabricServer().getBiomeRegistry();
 
         for (int i = 0; i < b.length; i++) {
             if (b[i] == null) continue;
