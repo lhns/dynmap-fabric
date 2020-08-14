@@ -88,7 +88,8 @@ public class FabricMapChunkCache extends MapChunkCache {
         for (int i = 0; i < b.length; i++) {
             if (b[i] == null) continue;
 
-            String bs = biomeRegistry.getId(b[i]).toString(); //TODO: 1.16.1 was: b[i].getTranslationKey();
+            //FIXME: This probably not correct. In 1.16.1 it was: b[i].getTranslationKey();
+            String bs = biomeRegistry.getId(b[i]).toString();
 
             for (int j = 0; j < bm.length; j++) {
                 if (bm[j].toString().equals(bs)) {
@@ -1101,6 +1102,7 @@ public class FabricMapChunkCache extends MapChunkCache {
                     try {
                         nbt = ChunkSerializer.serialize((ServerWorld) w, cps.getWorldChunk(chunk.x, chunk.z, false));
                     } catch (NullPointerException e) {
+                        // TODO: find out why this is happening and why it only seems to happen since 1.16.2
                         Log.severe("ChunkSerializer.serialize threw a NullPointerException", e);
                     }
                     if (nbt != null) nbt = nbt.getCompound("Level");
