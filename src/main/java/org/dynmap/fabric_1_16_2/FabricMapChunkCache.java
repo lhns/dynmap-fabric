@@ -1097,7 +1097,12 @@ public class FabricMapChunkCache extends MapChunkCache {
                 ChunkSnapshot ss;
                 DynIntHashMap tileData;
                 if (vis) {  // If visible 
-                    CompoundTag nbt = ChunkSerializer.serialize((ServerWorld) w, cps.getWorldChunk(chunk.x, chunk.z, false) /*TODO: NPE*/);
+                    CompoundTag nbt = null;
+                    try {
+                        nbt = ChunkSerializer.serialize((ServerWorld) w, cps.getWorldChunk(chunk.x, chunk.z, false));
+                    } catch (NullPointerException e) {
+                        Log.severe("ChunkSerializer.serialize threw a NullPointerException", e);
+                    }
                     if (nbt != null) nbt = nbt.getCompound("Level");
                     SnapshotCache.SnapshotRec ssr = prepChunkSnapshot(chunk, nbt);
                     ss = ssr.ss;
