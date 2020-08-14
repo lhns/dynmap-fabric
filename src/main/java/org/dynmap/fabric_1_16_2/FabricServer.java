@@ -1,7 +1,6 @@
 package org.dynmap.fabric_1_16_2;
 
 import com.mojang.authlib.GameProfile;
-import com.sun.nio.zipfs.ZipFileSystem;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.block.Block;
@@ -562,7 +561,7 @@ public class FabricServer extends DynmapServerInterface {
         Optional<ModContainer> container = getModContainerById(name);    // Try case sensitive lookup
         if (container.isPresent()) {
             Path path = container.get().getRootPath();
-            if (path.getFileSystem() instanceof ZipFileSystem) {
+            if (path.getFileSystem().provider().getScheme().equals("jar")) {
                 path = Paths.get(path.getFileSystem().toString());
             }
             return path.toFile();
