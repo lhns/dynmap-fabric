@@ -1,6 +1,5 @@
 package org.dynmap.fabric_1_16_1;
 
-import com.sun.nio.zipfs.ZipFileSystem;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
@@ -35,7 +34,7 @@ public class DynmapMod implements ModInitializer {
             Log.severe("Unable to get DynmapCore jar path", e);
         }
 
-        if (path.getFileSystem() instanceof ZipFileSystem) {
+        if (path.getFileSystem().provider().getScheme().equals("jar")) {
             path = Paths.get(path.getFileSystem().toString());
             jarfile = path.toFile();
         }
