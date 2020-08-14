@@ -20,7 +20,7 @@ public abstract class ServerPlayNetworkHandlerMixin {
             method = "onGameMessage",
             at = @At(
                     value = "INVOKE",
-                    target = "broadcastChatMessage",
+                    target = "Lnet/minecraft/server/PlayerManager;broadcastChatMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/MessageType;Ljava/util/UUID;)V",
                     shift = At.Shift.BEFORE
             ),
             locals = LocalCapture.CAPTURE_FAILSOFT
