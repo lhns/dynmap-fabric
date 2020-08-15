@@ -208,7 +208,7 @@ public class ChunkSnapshot {
                 if (statelist.length == expectedStatelistLength) {
                     db = new PackedIntegerArray(bitsperblock, 4096, statelist);
                 } else {
-                    int expectedLegacyStatelistLength = MathHelper.roundUpToMultiple(statelist.length * 4096, 64) / 64;
+                    int expectedLegacyStatelistLength = MathHelper.roundUpToMultiple(bitsperblock * 4096, 64) / 64;
                     if (statelist.length == expectedLegacyStatelistLength) {
                         dbp = new WordPackedArray(bitsperblock, 4096, statelist);
                     } else {
