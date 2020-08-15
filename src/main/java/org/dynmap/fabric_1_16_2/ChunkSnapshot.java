@@ -200,7 +200,7 @@ public class ChunkSnapshot {
 
                 int bitsperblock = (statelist.length * 64) / 4096;
                 int expectedStatelistLength = (4096 + (64 / bitsperblock) - 1) / (64 / bitsperblock);
-                if (expectedStatelistLength > statelist.length) {
+                if (expectedStatelistLength != statelist.length) {
                     throw new StateListException(x, z, expectedStatelistLength, statelist.length);
                 }
 
