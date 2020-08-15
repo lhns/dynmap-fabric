@@ -41,7 +41,7 @@ dependencies {
     compileOnly group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
 
     shadow "us.dynmap:DynmapCoreAPI:3.1-beta-1"
-    shadow name: "DynmapCore-3.0-unshaded"
+    shadow name: "DynmapCore-3.1-SNAPSHOT"
 
     shadow 'javax.servlet:javax.servlet-api:3.1'
     shadow 'org.eclipse.jetty:jetty-server:9.4.26.v20200117'
