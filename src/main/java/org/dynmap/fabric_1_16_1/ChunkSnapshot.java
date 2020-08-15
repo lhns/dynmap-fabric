@@ -125,7 +125,10 @@ public class ChunkSnapshot {
         this.inhabitedTicks = inhabitedTime;
     }
 
-    public ChunkSnapshot(CompoundTag nbt, int worldheight) {
+    public static class StateListException extends Exception {
+    }
+
+    public ChunkSnapshot(CompoundTag nbt, int worldheight) throws StateListException {
         this.x = nbt.getInt("xPos");
         this.z = nbt.getInt("zPos");
         this.captureFulltime = 0;
@@ -188,9 +191,10 @@ public class ChunkSnapshot {
                 int expectedStatelistLength = (4096 + (64 / bitsperblock) - 1) / (64 / bitsperblock);
                 if (expectedStatelistLength > statelist.length) { // TODO: find out why this is happening and why it doesn't seem to happen on other platforms
                     Log.warning("Got statelist of length " + statelist.length + " but expected a length of " + expectedStatelistLength + " at ChunkPos(x=" + x + ",z=" + z + ")");
-                    long[] expandedStatelist = new long[expectedStatelistLength];
+                    throw new StateListException();
+                    /*long[] expandedStatelist = new long[expectedStatelistLength];
                     System.arraycopy(statelist, 0, expandedStatelist, 0, statelist.length);
-                    statelist = expandedStatelist;
+                    statelist = expandedStatelist;*/
                 }
 
                 PackedIntegerArray db = new PackedIntegerArray(bitsperblock, 4096, statelist);
