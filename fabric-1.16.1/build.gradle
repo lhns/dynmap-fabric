@@ -11,7 +11,6 @@ buildscript {
         classpath group: 'net.fabricmc', name: 'fabric-loom', version: '0.5.9'
     }
 }
-apply plugin: 'scala'
 apply plugin: 'fabric-loom'
 apply plugin: 'maven-publish'
 
