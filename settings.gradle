@@ -1,3 +1,4 @@
 rootProject.name = 'dynmap-fabric'
 
+include ':fabric-1.16.1'
 include ':fabric-1.16.2'
