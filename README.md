@@ -1,9 +1,14 @@
-# Dynmap for Fabric [Unofficial]
+# Dynmap for Fabric [Deprecated, Unofficial]
 [![Release Notes](https://img.shields.io/github/release/LolHens/dynmap-fabric.svg?maxAge=3600)](https://github.com/LolHens/dynmap-fabric/releases/latest)
 [![Apache License 2.0](https://img.shields.io/github/license/LolHens/dynmap-fabric.svg?maxAge=3600)](https://www.apache.org/licenses/LICENSE-2.0)
 
 Note this is an unofficial port of Dynmap for Fabric.
 Please do not contact the dynmap developers with issues; make bug reports and issues here.
+
+## This repository is deprecated
+Everything was merged [upstream](https://github.com/webbukkit/dynmap).
+
+You can find the official releases for fabric on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/dynmapforge).
 
 ## Discord server 
 If you want to help out testing this mod feel free to join the discord server:
